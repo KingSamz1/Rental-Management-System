@@ -1,0 +1,28 @@
+[theme]
+# Default fallback for viewers whose browser reports neither preference.
+base = "light"
+font = "sans serif"
+
+[theme.light]
+primaryColor = "#2F6F4E"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F6F7F5"
+textColor = "#1F2A24"
+font = "sans serif"
+
+[theme.dark]
+primaryColor = "#22C55E"
+backgroundColor = "#101110"
+secondaryBackgroundColor = "#191A19"
+textColor = "#F2F3F1"
+font = "sans serif"
+
+[server]
+headless = true
+# Increases the max upload size limit directly in Streamlit
+maxUploadSize = 50
+# Needed behind a reverse proxy (nginx) so local WebSockets connect stably
+# without strict CORS/XSRF blocking. Not needed if deploying on Streamlit
+# Community Cloud instead, but harmless to leave on either way.
+enableCORS = false
+enableXsrfProtection = false
