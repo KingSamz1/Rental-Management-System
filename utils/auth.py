@@ -61,6 +61,46 @@ def _brand_header(c, subtitle="Sign in to manage your properties"):
     )
 
 
+# ── app summary card ─────────────────────────────────────────────────────────
+
+def _app_summary(c):
+    """Short product summary shown on login, signup, and the dashboard."""
+    features = [
+        ("🏢", "Properties & units", "Add buildings and individual units in seconds."),
+        ("👤", "Tenant management", "Store contacts, move-in dates, and documents."),
+        ("💰", "Rent & water bills", "Charge rent or water per tenant each month."),
+        ("💳", "Payments & receipts", "Record cash or MoMo payments, auto-generate PDF receipts."),
+        ("🔐", "Deposits & advance rent", "Track security deposits and prepaid months separately."),
+        ("📲", "WhatsApp reminders", "One-tap reminder links sent straight to tenants."),
+        ("📊", "Reports", "Monthly income, outstanding balances, and tenant history."),
+    ]
+    items_html = "".join(
+        f'<div style="display:flex; align-items:flex-start; gap:10px; padding:7px 0; '
+        f'border-bottom:1px solid {c["BORDER"]};">'
+        f'<span style="font-size:16px; line-height:1.4;">{icon}</span>'
+        f'<div>'
+        f'<span style="font-size:13px; font-weight:600; color:{c["BRAND_TEXT"]};">{title}</span>'
+        f'<span style="font-size:12px; color:{c["TEXT_MUTED"]};"> — {desc}</span>'
+        f'</div>'
+        f'</div>'
+        for icon, title, desc in features
+    )
+    st.markdown(
+        f'<div style="background:{c["CARD_BG"]}; border:1px solid {c["BORDER"]}; '
+        f'border-radius:14px; padding:1rem 1.25rem; margin-top:0.75rem;">'
+        f'<p style="margin:0 0 10px; font-size:13px; font-weight:700; color:{c["BRAND_TEXT"]}; '
+        f'letter-spacing:0.02em; text-transform:uppercase;">What LandlordPro does</p>'
+        f'<p style="margin:0 0 10px; font-size:13px; color:{c["TEXT_MUTED"]}; line-height:1.55;">'
+        f'A simple, all-in-one tool built for landlords in Uganda (and anywhere else). '
+        f'Manage every property, tenant, and payment from one place — no spreadsheets, no paper.</p>'
+        f'{items_html}'
+        f'<p style="margin:10px 0 0; font-size:12px; color:{c["TEXT_MUTED"]}; font-style:italic;">'
+        f'First month free · No setup fee · Works on any device</p>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
 # ── login ─────────────────────────────────────────────────────────────────────
 
 def check_login():
@@ -99,6 +139,7 @@ def check_login():
         unsafe_allow_html=True,
     )
 
+    _app_summary(c)
     _whatsapp_footer(c)
 
     st.markdown('</div>', unsafe_allow_html=True)
@@ -151,6 +192,7 @@ def _show_signup_page():
         unsafe_allow_html=True,
     )
 
+    _app_summary(c)
     _whatsapp_footer(c)
 
     st.markdown('</div>', unsafe_allow_html=True)

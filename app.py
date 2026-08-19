@@ -37,6 +37,36 @@ metric_row([
 ])
 
 st.divider()
+
+# ── About LandlordPro (collapsible — handy for showing a new user or your dad) ──
+with st.expander("ℹ️ About LandlordPro — what this app does", expanded=False):
+    st.markdown(
+        """
+**LandlordPro** is a simple, all-in-one property management tool built for landlords.
+Instead of juggling notebooks, WhatsApp messages, and spreadsheets, everything lives in one place.
+
+**What you can do:**
+
+| | Feature | What it means |
+|---|---|---|
+| 🏢 | **Properties & units** | Add your buildings and individual rental units |
+| 👤 | **Tenants** | Store tenant names, contacts, move-in dates, and ID documents |
+| 💰 | **Rent & water bills** | Charge rent or water to each tenant every month |
+| 💳 | **Payments & receipts** | Record cash or MoMo payments and auto-generate PDF receipts |
+| 🔐 | **Deposits & advance rent** | Track security deposits and prepaid months separately |
+| 📲 | **WhatsApp reminders** | Send one-tap payment reminders directly to tenants |
+| 📊 | **Reports** | See monthly income, outstanding balances, and full payment history |
+
+**Why landlords use it:**
+- No more chasing who paid and who hasn't — balances update automatically
+- Receipts are generated for you — no printing or manual writing
+- Works on any phone or computer, no app to install
+- Each landlord has their own private account — your data stays yours
+- First month is free, no setup fee
+        """,
+        unsafe_allow_html=False,
+    )
+
 section_label("Tenant balances")
 
 balances = all_tenant_balances(account_id=account_id)
