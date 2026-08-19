@@ -1,0 +1,155 @@
+"""
+Multi-account authentication for LandlordPro.
+Each account has its own username + hashed password stored in the DB.
+Session state tracks account_id so every page query is scoped to the
+logged-in landlord.
+"""
+import streamlit as st
+from utils.db import get_account_by_username, verify_password, create_account, get_account
+
+
+SUPPORT_WHATSAPP = "https://wa.me/256793839816"
+SUPPORT_NUMBER = "+256 793 839 816"
+
+
+def get_current_account_id() -> int:
+    """Return the account_id of whoever is logged in. Raises if not authenticated."""
+    return st.session_state.get("account_id", 1)
+
+
+def check_login():
+    """
+    Renders the login card if not authenticated.
+    Returns True when the user is logged in so pages can gate their content.
+    Always call this before rendering any page content.
+    """
+    if st.session_state.get("authenticated"):
+        return True
+
+    from utils.theme import apply_theme, colors
+    apply_theme()
+    c = colors()
+
+    # Centered narrow container
+    st.markdown('<div style="max-width:400px; margin: 2.5rem auto 0;">', unsafe_allow_html=True)
+
+    # Brand header card
+    st.markdown(
+        f'<div style="background:{c["CARD_BG"]}; border:1px solid {c["BORDER"]}; '
+        f'border-radius:18px; padding:1.5rem 1.75rem 1rem; margin-bottom:0.75rem;">'
+        f'<div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">'
+        f'<div style="width:36px; height:36px; border-radius:10px; background:{c["ACCENT_SOFT"]}; '
+        f'display:flex; align-items:center; justify-content:center; font-size:18px;">🏠</div>'
+        f'<span style="font-size:18px; font-weight:650; color:{c["BRAND_TEXT"]};">LandlordPro</span>'
+        f'</div>'
+        f'<p style="color:{c["TEXT_MUTED"]}; margin:0; font-size:13px;">Sign in to manage your properties</p>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.form("login_form"):
+        username = st.text_input("Username", placeholder="your username")
+        password = st.text_input("Password", type="password", placeholder="••••••••")
+        submitted = st.form_submit_button("Log in", type="primary", use_container_width=True)
+
+    # Link to signup
+    st.markdown(
+        f'<p style="text-align:center; font-size:13px; color:{c["TEXT_MUTED"]}; margin-top:0.5rem;">'
+        f'No account? <a href="?page=signup" target="_self" style="color:{c["ACCENT"]}; '
+        f'font-weight:600;">Go to Sign Up</a> to create one.</p>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    if submitted:
+        account = get_account_by_username(username.strip())
+        if account and verify_password(password, account["password_hash"]):
+            st.session_state["authenticated"] = True
+            st.session_state["account_id"] = account["id"]
+            st.session_state["username"] = account["username"]
+            st.rerun()
+        else:
+            st.error("Invalid username or password.")
+
+    # Check if we should show signup instead
+    params = st.query_params
+    if params.get("page") == "signup":
+        _show_signup_inline()
+
+    st.stop()
+
+
+def _show_signup_inline():
+    """Renders the signup form below the login area on the same page."""
+    from utils.theme import colors
+    c = colors()
+
+    st.markdown('<div style="max-width:400px; margin: 1.5rem auto 0;">', unsafe_allow_html=True)
+    st.markdown(
+        f'<div style="background:{c["CARD_BG"]}; border:1px solid {c["BORDER"]}; '
+        f'border-radius:18px; padding:1.5rem 1.75rem 1rem; margin-bottom:0.75rem;">'
+        f'<p style="font-size:16px; font-weight:650; margin:0 0 4px; color:{c["BRAND_TEXT"]};">Create your account</p>'
+        f'<p style="color:{c["TEXT_MUTED"]}; margin:0; font-size:13px;">Start your free trial month — no setup fee</p>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.form("signup_form"):
+        new_username = st.text_input("Choose a username*")
+        new_password = st.text_input("Password*", type="password")
+        confirm_password = st.text_input("Confirm password*", type="password")
+        business_name = st.text_input("Business / landlord name*")
+        currency = st.text_input("Currency code (e.g. UGX, KES, USD)", value="UGX")
+        phone = st.text_input("Contact phone (optional)")
+        submitted = st.form_submit_button("Create account & start free trial", type="primary", use_container_width=True)
+
+        if submitted:
+            errors = []
+            if not new_username.strip():
+                errors.append("Username is required.")
+            if len(new_password) < 6:
+                errors.append("Password must be at least 6 characters.")
+            if new_password != confirm_password:
+                errors.append("Passwords don't match.")
+            if not business_name.strip():
+                errors.append("Business name is required.")
+            if get_account_by_username(new_username.strip()):
+                errors.append("That username is already taken.")
+
+            if errors:
+                for e in errors:
+                    st.error(e)
+            else:
+                from utils.subscription import create_subscription
+                acct_id = create_account(
+                    new_username.strip(), new_password,
+                    business_name.strip(), currency.strip().upper(), phone.strip()
+                )
+                create_subscription(acct_id, business_name.strip())
+                st.session_state["authenticated"] = True
+                st.session_state["account_id"] = acct_id
+                st.session_state["username"] = new_username.strip()
+                st.query_params.clear()
+                st.success("Account created! Welcome to LandlordPro.")
+                st.rerun()
+
+    # Support link
+    st.markdown(
+        f'<p style="text-align:center; font-size:13px; color:{c["TEXT_MUTED"]}; margin-top:0.5rem;">'
+        f'Need assistance? '
+        f'<a href="{SUPPORT_WHATSAPP}" target="_blank" style="color:{c["ACCENT"]}; font-weight:600;">'
+        f'WhatsApp or call {SUPPORT_NUMBER}</a></p>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.stop()
+
+
+def logout_button():
+    username = st.session_state.get("username", "")
+    label = f"Log out ({username})" if username else "Log out"
+    if st.sidebar.button(label):
+        st.session_state.clear()
+        st.rerun()

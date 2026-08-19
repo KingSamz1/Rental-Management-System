@@ -1,6 +1,6 @@
 import streamlit as st
 from utils.db import init_db, get_setting, get_conn
-from utils.auth import check_login, logout_button
+from utils.auth import check_login, logout_button, get_current_account_id
 from utils.logic import list_units, list_tenants
 from utils.theme import apply_theme, page_header, empty_state, section_label
 
@@ -11,7 +11,9 @@ if not check_login():
     st.stop()
 logout_button()
 
-currency = get_setting("currency", "UGX")
+account_id = get_current_account_id()
+
+currency = (get_account(account_id) or {}).get("currency", "UGX")
 
 page_header("Water Bills", icon="📱")
 st.caption(

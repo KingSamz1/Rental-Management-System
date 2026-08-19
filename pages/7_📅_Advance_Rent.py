@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import date
-from utils.db import init_db, get_setting
-from utils.auth import check_login, logout_button
+from utils.db import init_db, get_account
+from utils.auth import check_login, logout_button, get_current_account_id
 from utils.logic import list_tenants, add_advance_rent, list_advance_rent
 from utils.theme import apply_theme, page_header, empty_state, section_label, subscription_banner, require_active_subscription
 
@@ -12,7 +12,9 @@ if not check_login():
     st.stop()
 logout_button()
 
-currency = get_setting("currency", "UGX")
+account_id = get_current_account_id()
+
+currency = (get_account(account_id) or {}).get("currency", "UGX")
 
 page_header("Advance Rent", icon="📅")
 subscription_banner()
@@ -24,7 +26,7 @@ st.caption(
     "advance in the note if useful."
 )
 
-tenants = list_tenants(status="active")
+tenants = list_tenants(status="active", account_id=account_id)
 
 if not tenants:
     empty_state("No active tenants yet.", icon="👤")

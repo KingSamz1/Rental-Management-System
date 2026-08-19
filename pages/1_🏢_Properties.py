@@ -1,6 +1,10 @@
 import streamlit as st
-from utils.db import init_db, get_setting
-from utils.auth import check_login, logout_button
+from utils.db import init_db, get_account
+from utils.auth import check_login, logout_button, get_current_account_id
+
+def get_account_setting(key, account_id):
+    a = get_account(account_id)
+    return (a or {}).get(key, "UGX" if key == "currency" else "")
 from utils.logic import (
     add_property, list_properties, update_property, delete_property,
     add_unit, list_units, get_unit, update_unit, delete_unit,
@@ -14,7 +18,8 @@ if not check_login():
     st.stop()
 logout_button()
 
-currency = get_setting("currency", "UGX")
+account_id = get_current_account_id()
+currency = get_account_setting("currency", account_id)
 
 page_header("Properties & Units", icon="🏢")
 subscription_banner()
@@ -34,18 +39,18 @@ with tab1:
             elif not name.strip():
                 st.error("Property name is required.")
             else:
-                add_property(name.strip(), address.strip())
+                add_property(name.strip(), address.strip(), account_id=account_id)
                 st.success(f"Added property '{name}'.")
                 st.rerun()
 
     section_label("Existing properties")
-    properties = list_properties()
+    properties = list_properties(account_id=account_id)
     if not properties:
         empty_state("No properties yet. Add one above to get started.", icon="🏘️")
     else:
         for p in properties:
             with st.expander(f"{p['name']} — {p['address'] or 'no address'}"):
-                units_here = list_units(p["id"])
+                units_here = list_units(p["id"], account_id=account_id)
                 st.write(f"{len(units_here)} unit(s)")
 
                 edit_key = f"editing_prop_{p['id']}"
@@ -81,7 +86,7 @@ with tab1:
                             st.rerun()
 
 with tab2:
-    properties = list_properties()
+    properties = list_properties(account_id=account_id)
     if not properties:
         empty_state("Add a property first before creating units.", icon="🏢")
     else:
@@ -104,7 +109,7 @@ with tab2:
                     st.rerun()
 
         section_label("All units")
-        units = list_units()
+        units = list_units(account_id=account_id)
         if not units:
             empty_state("No units yet. Add one above.", icon="🔑")
         else:

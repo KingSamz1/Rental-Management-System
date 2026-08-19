@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import date
-from utils.db import init_db, get_setting
-from utils.auth import check_login, logout_button
+from utils.db import init_db, get_account
+from utils.auth import check_login, logout_button, get_current_account_id
 from utils.logic import list_tenants, record_payment, list_payments, list_charges
 from utils.receipts import generate_receipt, get_receipt_for_payment, REPORTLAB_AVAILABLE
 from utils.theme import apply_theme, page_header, empty_state, section_label, subscription_banner, require_active_subscription
@@ -13,7 +13,9 @@ if not check_login():
     st.stop()
 logout_button()
 
-currency = get_setting("currency", "UGX")
+account_id = get_current_account_id()
+
+currency = (get_account(account_id) or {}).get("currency", "UGX")
 
 page_header("Payment Recording", icon="💳")
 subscription_banner()
@@ -25,7 +27,7 @@ if not REPORTLAB_AVAILABLE:
     )
 st.write("")
 
-tenants = list_tenants(status="active")
+tenants = list_tenants(status="active", account_id=account_id)
 
 if not tenants:
     empty_state("No active tenants yet. Add tenants first.", icon="👤")
@@ -111,7 +113,7 @@ st.divider()
 section_label("Payment history")
 
 filter_options = {"All tenants": None}
-filter_options.update({f"{t['full_name']} — {t['unit_name']}": t["id"] for t in list_tenants()})
+filter_options.update({f"{t['full_name']} — {t['unit_name']}": t["id"] for t in list_tenants(account_id=account_id)})
 filter_label = st.selectbox("Filter by tenant", list(filter_options.keys()), key="payment_history_filter")
 payments = list_payments(tenant_id=filter_options[filter_label])
 

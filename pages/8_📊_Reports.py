@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-from utils.db import init_db, get_setting
-from utils.auth import check_login, logout_button
+from utils.db import init_db, get_account
+from utils.auth import check_login, logout_button, get_current_account_id
 from utils.logic import (
     all_tenant_balances, list_payments, list_charges, list_deposits,
     list_advance_rent, current_period, period_label,
@@ -15,7 +15,9 @@ if not check_login():
     st.stop()
 logout_button()
 
-currency = get_setting("currency", "UGX")
+account_id = get_current_account_id()
+
+currency = (get_account(account_id) or {}).get("currency", "UGX")
 
 page_header("Reports", icon="📊")
 st.write("")

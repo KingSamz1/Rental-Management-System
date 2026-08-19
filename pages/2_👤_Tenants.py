@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import date
-from utils.db import init_db, get_setting
-from utils.auth import check_login, logout_button
+from utils.db import init_db, get_account
+from utils.auth import check_login, logout_button, get_current_account_id
 from utils.logic import (
     list_units, add_tenant, list_tenants, get_tenant, vacate_tenant, tenant_balance,
     save_tenant_id_document, update_tenant_id_document, update_tenant,
@@ -15,7 +15,9 @@ if not check_login():
     st.stop()
 logout_button()
 
-currency = get_setting("currency", "UGX")
+account_id = get_current_account_id()
+
+currency = (get_account(account_id) or {}).get("currency", "UGX")
 
 page_header("Tenants", icon="👤")
 subscription_banner()
@@ -24,7 +26,7 @@ st.write("")
 tab1, tab2 = st.tabs(["Add tenant", "All tenants"])
 
 with tab1:
-    vacant_units = [u for u in list_units() if u["status"] == "vacant"]
+    vacant_units = [u for u in list_units(account_id=account_id) if u["status"] == "vacant"]
     if not vacant_units:
         empty_state("No vacant units available. Add a unit first, or vacate an existing tenant.", icon="🚪")
     else:
@@ -33,11 +35,26 @@ with tab1:
                              for u in vacant_units}
             unit_label = st.selectbox("Unit*", list(unit_options.keys()))
             full_name = st.text_input("Full name*")
-            phone = st.text_input(
-                "Phone (with country code)",
-                value="+256",
-                help="Keep the +256 prefix and add the rest of the Ugandan number, e.g. +256701234567",
-            )
+
+            st.markdown("**Phone number**")
+            DIAL_CODES = [
+                ("🇺🇬 UG  +256", "+256"), ("🇰🇪 KE  +254", "+254"), ("🇹🇿 TZ  +255", "+255"),
+                ("🇷🇼 RW  +250", "+250"), ("🇧🇮 BI  +257", "+257"), ("🇸🇸 SS  +211", "+211"),
+                ("🇨🇩 CD  +243", "+243"), ("🇸🇴 SO  +252", "+252"), ("🇪🇹 ET  +251", "+251"),
+                ("🇸🇩 SD  +249", "+249"), ("🇬🇧 GB  +44",  "+44"),  ("🇺🇸 US  +1",   "+1"),
+                ("🇳🇬 NG  +234", "+234"), ("🇬🇭 GH  +233", "+233"), ("🇿🇦 ZA  +27",  "+27"),
+                ("🇮🇳 IN  +91",  "+91"),  ("Other", ""),
+            ]
+            code_labels = [label for label, _ in DIAL_CODES]
+            code_values = {label: code for label, code in DIAL_CODES}
+            pc1, pc2 = st.columns([1, 2])
+            with pc1:
+                dial_label = st.selectbox("Country code", code_labels, index=0, label_visibility="collapsed")
+            with pc2:
+                phone_local = st.text_input("Phone number", placeholder="701 234 567", label_visibility="collapsed")
+            dial_code = code_values[dial_label]
+            phone = (dial_code + phone_local.strip()).strip()
+
             email = st.text_input("Email")
 
             st.markdown("**Identification**")
@@ -74,7 +91,7 @@ with tab1:
 
 with tab2:
     status_filter = st.radio("Show", ["active", "vacated", "all"], horizontal=True)
-    tenants = list_tenants(status=None if status_filter == "all" else status_filter)
+    tenants = list_tenants(status=None if status_filter == "all" else status_filter, account_id=account_id)
 
     if not tenants:
         empty_state("No tenants found.", icon="👤")
@@ -89,7 +106,33 @@ with tab2:
                 if st.session_state.get(edit_mode_key):
                     with st.form(f"edit_tenant_form_{t['id']}"):
                         e_full_name = st.text_input("Full name*", value=t["full_name"])
-                        e_phone = st.text_input("Phone", value=t["phone"] or "")
+                        st.markdown("**Phone number**")
+                        DIAL_CODES_E = [
+                            ("🇺🇬 UG  +256", "+256"), ("🇰🇪 KE  +254", "+254"), ("🇹🇿 TZ  +255", "+255"),
+                            ("🇷🇼 RW  +250", "+250"), ("🇧🇮 BI  +257", "+257"), ("🇸🇸 SS  +211", "+211"),
+                            ("🇨🇩 CD  +243", "+243"), ("🇸🇴 SO  +252", "+252"), ("🇪🇹 ET  +251", "+251"),
+                            ("🇸🇩 SD  +249", "+249"), ("🇬🇧 GB  +44",  "+44"),  ("🇺🇸 US  +1",   "+1"),
+                            ("🇳🇬 NG  +234", "+234"), ("🇬🇭 GH  +233", "+233"), ("🇿🇦 ZA  +27",  "+27"),
+                            ("🇮🇳 IN  +91",  "+91"),  ("Other", ""),
+                        ]
+                        existing_phone = t["phone"] or ""
+                        # Try to pre-select dial code from stored phone
+                        default_code_idx = 0
+                        for idx, (lbl, code) in enumerate(DIAL_CODES_E):
+                            if code and existing_phone.startswith(code):
+                                default_code_idx = idx
+                                break
+                        ec1, ec2 = st.columns([1, 2])
+                        with ec1:
+                            e_dial_label = st.selectbox("Code", [l for l, _ in DIAL_CODES_E],
+                                                         index=default_code_idx, label_visibility="collapsed",
+                                                         key=f"ecode_{t['id']}")
+                        with ec2:
+                            e_dial_code = {l: c for l, c in DIAL_CODES_E}[e_dial_label]
+                            local_part = existing_phone[len(e_dial_code):] if e_dial_code and existing_phone.startswith(e_dial_code) else existing_phone
+                            e_phone_local = st.text_input("Number", value=local_part,
+                                                           label_visibility="collapsed", key=f"ephone_{t['id']}")
+                        e_phone = (e_dial_code + e_phone_local.strip()).strip()
                         e_email = st.text_input("Email", value=t["email"] or "")
                         e_id_number = st.text_input("National ID number or Passport number", value=t.get("id_number") or "")
                         e_move_in = st.date_input(

@@ -269,29 +269,25 @@ def status_pill(text, tone="neutral"):
 
 
 def subscription_banner():
-    """Shows a small status banner if a subscription exists."""
+    """Shows a small status banner. Call after check_login() so account_id exists."""
     from utils.subscription import update_subscription_status, days_remaining
-    sub = update_subscription_status()
+    from utils.auth import get_current_account_id
+    account_id = get_current_account_id()
+    sub = update_subscription_status(account_id)
     if not sub:
         return
     status = sub["status"]
-    days = days_remaining()
+    days = days_remaining(account_id)
     if status == "TRIAL":
         if sub.get("past_due"):
-            st.warning(
-                f"⏳ Your free trial ended — you have {sub['grace_days_left']} day(s) left "
-                "before the account locks. Renew on the Subscription page to stay active."
-            )
+            st.warning(f"⏳ Your free trial ended — {sub['grace_days_left']} day(s) left before the account locks. Renew on the Subscription page to stay active.")
         elif days <= 2:
             st.info(f"⏰ Your free trial ends in {days} day(s). Renew on the Subscription page to avoid interruption.")
         else:
             st.info(f"🎁 LandlordPro free trial — {days} day(s) remaining")
     elif status == "ACTIVE":
         if sub.get("past_due"):
-            st.warning(
-                f"⏳ Payment overdue — you have {sub['grace_days_left']} day(s) left before "
-                "the account locks. Renew on the Subscription page to stay active."
-            )
+            st.warning(f"⏳ Payment overdue — {sub['grace_days_left']} day(s) left before the account locks. Renew on the Subscription page to stay active.")
         elif days <= 2:
             st.info(f"⏰ Your subscription renews in {days} day(s). Renew on the Subscription page to avoid interruption.")
     else:
@@ -300,14 +296,10 @@ def subscription_banner():
 
 def require_active_subscription():
     """Call before a write action. Returns True if allowed to proceed."""
-    from utils.subscription import get_subscription, system_active
-    sub = get_subscription()
-    if sub is None:
+    from utils.subscription import system_active
+    from utils.auth import get_current_account_id
+    account_id = get_current_account_id()
+    if system_active(account_id):
         return True
-    if system_active():
-        return True
-    st.error(
-        "🔒 Your LandlordPro subscription has expired. Your data is safe — "
-        "renew on the **Subscription** page to continue adding or editing records."
-    )
+    st.error("🔒 Your LandlordPro subscription has expired. Your data is safe — renew on the **Subscription** page to continue adding or editing records.")
     return False

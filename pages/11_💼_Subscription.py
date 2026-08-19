@@ -1,9 +1,9 @@
 import streamlit as st
-from utils.db import init_db, get_setting
-from utils.auth import check_login, logout_button
+from utils.db import init_db, get_account
+from utils.auth import check_login, logout_button, get_current_account_id
 from utils.theme import apply_theme, page_header, section_label, empty_state, metric_row
 from utils.subscription import (
-    SETUP_FEE, MONTHLY_FEE, GRACE_DAYS,
+    MONTHLY_FEE, GRACE_DAYS,
     create_subscription, get_subscription, update_subscription_status,
     days_remaining, renew_subscription, subscription_payment_history,
     fast_forward, force_expire,
@@ -16,48 +16,17 @@ if not check_login():
     st.stop()
 logout_button()
 
-currency = get_setting("currency", "UGX")
+account_id = get_current_account_id()
+currency = (get_account(account_id) or {}).get("currency", "UGX")
 
 page_header("LandlordPro Subscription", subtitle="Your Property. Your Tenants. Under Control.", icon="💼")
 st.write("")
 
-sub = update_subscription_status()
-
-# ---------- No subscription yet: onboarding ----------
-if sub is None:
-    st.markdown("### Welcome to LandlordPro")
-    st.write("Set up your account and get a full month free, starting today.")
-
-    col1, col2 = st.columns(2)
-    col1.metric("One-time setup fee", f"{currency} {SETUP_FEE:,.0f}")
-    col2.metric("First month", "Free")
-
-    st.divider()
-    section_label("Create your account")
-
-    with st.form("create_subscription_form"):
-        landlord_name = st.text_input("Landlord / business name*")
-        st.caption(f"Collect the one-time setup fee of {currency} {SETUP_FEE:,.0f} before creating the account.")
-        payment_method = st.selectbox("Setup payment method", ["MTN Mobile Money", "Airtel Money", "Bank", "Cash", "Other"])
-        payment_reference = st.text_input("Setup payment reference*")
-        submitted = st.form_submit_button("Create account & start free trial", type="primary")
-
-        if submitted:
-            if not landlord_name.strip():
-                st.error("Landlord/business name is required.")
-            elif not payment_reference.strip():
-                st.error("Setup payment reference is required.")
-            else:
-                create_subscription(landlord_name.strip(), payment_reference, payment_method)
-                st.success("Account created. Your free trial month has started.")
-                st.balloons()
-                st.rerun()
-
-    st.stop()
+sub = update_subscription_status(account_id)
 
 # ---------- Existing subscription ----------
 status = sub["status"]
-days = days_remaining()
+days = days_remaining(account_id)
 
 if status == "TRIAL":
     if sub.get("past_due"):
@@ -75,10 +44,7 @@ elif status == "ACTIVE":
         st.success(f"🟢 Active — {days} day(s) remaining")
 else:
     st.error("🔴 Subscription expired")
-    st.warning(
-        "Your property, tenant, and payment data is safe and has not been deleted. "
-        "Renew below to restore full access to adding/editing records."
-    )
+    st.warning("Your property, tenant, and payment data is safe. Renew below to restore full access.")
 
 st.markdown(f"### {sub['landlord_name']}")
 
@@ -97,22 +63,21 @@ section_label("Renew subscription")
 st.write(f"**{currency} {MONTHLY_FEE:,.0f}** / month")
 
 with st.form("renew_form"):
-    payment_method = st.selectbox("Payment method", ["MTN Mobile Money", "Airtel Money", "Bank", "Cash", "Other"], key="renewal_method")
-    payment_reference = st.text_input("Transaction reference*", key="renewal_reference")
-    note = st.text_area("Note (optional)", key="renewal_note")
+    payment_method = st.selectbox("Payment method", ["MTN Mobile Money", "Airtel Money", "Bank", "Cash", "Other"])
+    payment_reference = st.text_input("Transaction reference*")
+    note = st.text_area("Note (optional)")
     submitted = st.form_submit_button(f"Renew for {currency} {MONTHLY_FEE:,.0f}", type="primary")
-
     if submitted:
         try:
-            renewed = renew_subscription(payment_reference, payment_method, note)
+            renewed = renew_subscription(account_id, payment_reference, payment_method, note)
             st.success(f"Subscription renewed. Next payment due {renewed['next_payment_date']}.")
             st.rerun()
         except ValueError as e:
             st.error(str(e))
 
 st.divider()
-section_label("Subscription payment history")
-history = subscription_payment_history()
+section_label("Payment history")
+history = subscription_payment_history(account_id)
 if not history:
     empty_state("No subscription payments recorded yet.", icon="💼")
 else:
@@ -127,20 +92,18 @@ else:
 st.divider()
 with st.expander("🛠️ Developer / testing tools"):
     st.caption(
-        "Only visible to whoever is logged in as the admin. Lets you exercise trial, "
-        "grace-period, and expiry behavior without waiting for real time to pass. "
-        f"Currently there's a {GRACE_DAYS}-day grace window after a due date before the "
-        "account actually locks."
+        f"Fast-forward your trial/billing date to test expiry behavior. "
+        f"There's a {GRACE_DAYS}-day grace window after the due date before the account locks."
     )
     col_a, col_b = st.columns(2)
     with col_a:
         days_to_skip = st.number_input("Days to fast-forward", min_value=1, max_value=365, value=7, step=1)
         if st.button("Fast-forward subscription"):
-            fast_forward(int(days_to_skip))
+            fast_forward(account_id, int(days_to_skip))
             st.rerun()
     with col_b:
         st.write("")
         st.write("")
         if st.button("Force expire now", type="secondary"):
-            force_expire()
+            force_expire(account_id)
             st.rerun()

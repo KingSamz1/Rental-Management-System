@@ -1,6 +1,6 @@
 import streamlit as st
-from utils.db import init_db, get_setting, set_setting
-from utils.auth import check_login, logout_button
+from utils.db import init_db, get_account, update_account_settings, update_account_password, verify_password
+from utils.auth import check_login, logout_button, get_current_account_id
 from utils.theme import apply_theme, page_header, section_label
 
 st.set_page_config(page_title="Settings", page_icon="⚙️", layout="wide")
@@ -10,41 +10,38 @@ if not check_login():
     st.stop()
 logout_button()
 
-page_header("Landlord Settings", icon="⚙️")
+account_id = get_current_account_id()
+account = get_account(account_id) or {}
+
+page_header("Account Settings", icon="⚙️")
 st.caption("These values appear on receipts and in reminder messages.")
 st.write("")
 
+section_label("Business details")
 with st.form("settings_form"):
-    business_name = st.text_input("Business / landlord name", value=get_setting("business_name", ""))
-    business_phone = st.text_input("Contact phone", value=get_setting("business_phone", ""))
-    currency = st.text_input("Currency code (e.g. UGX, KES, USD)", value=get_setting("currency", "UGX"))
+    business_name = st.text_input("Business / landlord name", value=account.get("business_name", ""))
+    business_phone = st.text_input("Contact phone", value=account.get("business_phone", ""))
+    currency = st.text_input("Currency code (e.g. UGX, KES, USD)", value=account.get("currency", "UGX"))
     submitted = st.form_submit_button("Save settings", type="primary")
     if submitted:
-        set_setting("business_name", business_name.strip())
-        set_setting("business_phone", business_phone.strip())
-        set_setting("currency", currency.strip().upper())
+        update_account_settings(account_id, business_name.strip(), currency.strip().upper(), business_phone.strip())
         st.success("Settings saved.")
 
 st.divider()
-section_label("Change login credentials")
-st.caption(
-    "Login credentials come from `.streamlit/secrets.toml`, not this page. "
-    "Edit that file directly and restart the app to change your username/password:"
-)
-st.code(
-    '[auth]\nusername = "your_username"\npassword = "your_new_password"',
-    language="toml",
-)
-
-st.divider()
-section_label("About this system")
-st.markdown(
-    "This is a working MVP foundation. Before using it commercially with real "
-    "landlords/tenants, consider strengthening:\n"
-    "- **Authentication**: hashed passwords, multi-user support, session expiry\n"
-    "- **Backups**: automatic backups of the SQLite database file\n"
-    "- **Audit logs**: who changed what and when\n"
-    "- **Deployment security**: HTTPS, environment-based secrets, not committing `secrets.toml`\n"
-    "- **WhatsApp**: connecting a real provider in `utils/whatsapp.py`\n"
-    "- **Payments**: Mobile Money API integration for automatic reconciliation instead of manual reference entry"
-)
+section_label("Change password")
+with st.form("change_password_form"):
+    current_pw = st.text_input("Current password", type="password")
+    new_pw = st.text_input("New password", type="password")
+    confirm_pw = st.text_input("Confirm new password", type="password")
+    pw_submitted = st.form_submit_button("Update password")
+    if pw_submitted:
+        fresh = get_account(account_id)
+        if not verify_password(current_pw, fresh["password_hash"]):
+            st.error("Current password is incorrect.")
+        elif len(new_pw) < 6:
+            st.error("New password must be at least 6 characters.")
+        elif new_pw != confirm_pw:
+            st.error("Passwords don't match.")
+        else:
+            update_account_password(account_id, new_pw)
+            st.success("Password updated.")

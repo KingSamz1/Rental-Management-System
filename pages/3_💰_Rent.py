@@ -1,6 +1,6 @@
 import streamlit as st
-from utils.db import init_db, get_setting
-from utils.auth import check_login, logout_button
+from utils.db import init_db, get_account
+from utils.auth import check_login, logout_button, get_current_account_id
 from utils.logic import (
     list_tenants, generate_charge, generate_charges_for_all_active,
     list_charges, current_period, period_label,
@@ -14,7 +14,9 @@ if not check_login():
     st.stop()
 logout_button()
 
-currency = get_setting("currency", "UGX")
+account_id = get_current_account_id()
+
+currency = (get_account(account_id) or {}).get("currency", "UGX")
 
 page_header("Monthly Rent Management", icon="💰")
 subscription_banner()
@@ -26,7 +28,7 @@ st.caption(f"Billing for: {period_label(period)}")
 
 col1, col2 = st.columns(2)
 with col1:
-    if st.button("Generate charges for ALL active tenants", type="primary"):
+    if st.button("Generate rent for ALL active tenants", type="primary"):
         if require_active_subscription():
             created = generate_charges_for_all_active(period)
             st.success(f"Created {created} new rent charge(s) for {period_label(period)}. "
@@ -41,7 +43,7 @@ with col2:
 
 st.divider()
 section_label("Add or adjust a single tenant's charge")
-tenants = list_tenants(status="active")
+tenants = list_tenants(status="active", account_id=account_id)
 if not tenants:
     empty_state("No active tenants yet.", icon="👤")
 else:
@@ -66,7 +68,7 @@ else:
 st.divider()
 section_label("Charge history")
 tenant_filter_options = {"All tenants": None}
-tenant_filter_options.update({f"{t['full_name']} — {t['unit_name']}": t["id"] for t in list_tenants()})
+tenant_filter_options.update({f"{t['full_name']} — {t['unit_name']}": t["id"] for t in list_tenants(account_id=account_id)})
 filter_label = st.selectbox("Filter by tenant", list(tenant_filter_options.keys()))
 charges = list_charges(tenant_id=tenant_filter_options[filter_label])
 

@@ -24,15 +24,20 @@ def save_tenant_id_document(tenant_id, uploaded_file):
 
 # ---------- Properties ----------
 
-def add_property(name, address=""):
+def add_property(name, address="", account_id=1):
     with get_conn() as conn:
-        cur = conn.execute("INSERT INTO properties (name, address) VALUES (?, ?)", (name, address))
+        cur = conn.execute(
+            "INSERT INTO properties (account_id, name, address) VALUES (?, ?, ?)",
+            (account_id, name, address),
+        )
         return cur.lastrowid
 
 
-def list_properties():
+def list_properties(account_id=1):
     with get_conn() as conn:
-        rows = conn.execute("SELECT * FROM properties ORDER BY name").fetchall()
+        rows = conn.execute(
+            "SELECT * FROM properties WHERE account_id = ? ORDER BY name", (account_id,)
+        ).fetchall()
         return [dict(r) for r in rows]
 
 
@@ -57,20 +62,22 @@ def add_unit(property_id, unit_name, monthly_rent, water_rate=0):
         return cur.lastrowid
 
 
-def list_units(property_id=None):
+def list_units(property_id=None, account_id=1):
     with get_conn() as conn:
         if property_id:
             rows = conn.execute(
                 """SELECT u.*, p.name as property_name FROM units u
                    JOIN properties p ON p.id = u.property_id
-                   WHERE u.property_id = ? ORDER BY u.unit_name""",
-                (property_id,),
+                   WHERE u.property_id = ? AND p.account_id = ? ORDER BY u.unit_name""",
+                (property_id, account_id),
             ).fetchall()
         else:
             rows = conn.execute(
                 """SELECT u.*, p.name as property_name FROM units u
                    JOIN properties p ON p.id = u.property_id
-                   ORDER BY p.name, u.unit_name"""
+                   WHERE p.account_id = ?
+                   ORDER BY p.name, u.unit_name""",
+                (account_id,),
             ).fetchall()
         return [dict(r) for r in rows]
 
@@ -133,16 +140,18 @@ def update_tenant(tenant_id, full_name, phone="", email="", id_number="", move_i
         )
 
 
-def list_tenants(status=None):
+def list_tenants(status=None, account_id=1):
     with get_conn() as conn:
-        q = """SELECT t.*, u.unit_name, u.monthly_rent, u.water_rate, p.name as property_name, p.id as property_id
+        q = """SELECT t.*, u.unit_name, u.monthly_rent, u.water_rate,
+                      p.name as property_name, p.id as property_id
                FROM tenants t
                JOIN units u ON u.id = t.unit_id
-               JOIN properties p ON p.id = u.property_id"""
-        params = ()
+               JOIN properties p ON p.id = u.property_id
+               WHERE p.account_id = ?"""
+        params = [account_id]
         if status:
-            q += " WHERE t.status = ?"
-            params = (status,)
+            q += " AND t.status = ?"
+            params.append(status)
         q += " ORDER BY t.full_name"
         rows = conn.execute(q, params).fetchall()
         return [dict(r) for r in rows]
@@ -354,26 +363,38 @@ def tenant_balance(tenant_id):
     }
 
 
-def all_tenant_balances():
+def all_tenant_balances(account_id=1):
     results = []
-    for t in list_tenants():
+    for t in list_tenants(account_id=account_id):
         bal = tenant_balance(t["id"])
         results.append({**t, **bal})
     return results
 
 
-def portfolio_summary():
+def portfolio_summary(account_id=1):
     """High-level numbers for the dashboard."""
     with get_conn() as conn:
-        total_units = conn.execute("SELECT COUNT(*) c FROM units").fetchone()["c"]
-        occupied = conn.execute("SELECT COUNT(*) c FROM units WHERE status = 'occupied'").fetchone()["c"]
+        total_units = conn.execute(
+            """SELECT COUNT(*) c FROM units u
+               JOIN properties p ON p.id = u.property_id
+               WHERE p.account_id = ?""", (account_id,)
+        ).fetchone()["c"]
+        occupied = conn.execute(
+            """SELECT COUNT(*) c FROM units u
+               JOIN properties p ON p.id = u.property_id
+               WHERE p.account_id = ? AND u.status = 'occupied'""", (account_id,)
+        ).fetchone()["c"]
         this_month = date.today().strftime("%Y-%m")
         collected_this_month = conn.execute(
-            "SELECT COALESCE(SUM(amount),0) t FROM payments WHERE payment_date LIKE ?",
-            (f"{this_month}%",),
+            """SELECT COALESCE(SUM(pay.amount),0) t FROM payments pay
+               JOIN tenants t ON t.id = pay.tenant_id
+               JOIN units u ON u.id = t.unit_id
+               JOIN properties p ON p.id = u.property_id
+               WHERE p.account_id = ? AND pay.payment_date LIKE ?""",
+            (account_id, f"{this_month}%"),
         ).fetchone()["t"]
 
-    tenant_rows = list_tenants(status="active")
+    tenant_rows = list_tenants(status="active", account_id=account_id)
     total_owed = 0
     total_credit = 0
     for t in tenant_rows:
