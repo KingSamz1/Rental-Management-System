@@ -117,6 +117,9 @@ def days_remaining(account_id):
 
 
 def system_active(account_id):
+    # Admin account always has full access regardless of subscription state
+    if is_admin(account_id):
+        return True
     sub = update_subscription_status(account_id)
     if not sub:
         return False
@@ -191,6 +194,7 @@ def list_renewal_codes(admin_account_id):
 def redeem_renewal_code(account_id, code):
     """
     Client: redeem a one-time code to extend their subscription.
+    Admin can also redeem codes for their own account.
     Raises ValueError with a human-readable message on failure.
     """
     code = code.strip().upper()

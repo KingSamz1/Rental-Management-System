@@ -169,13 +169,66 @@ def _show_signup_page():
 
     _brand_header(c, subtitle="Create your account — first month free, no setup fee")
 
+    # Dial codes and currencies for signup
+    _DIAL_CODES_SIGNUP = [
+        ("🇺🇬 UG  +256", "+256"), ("🇰🇪 KE  +254", "+254"), ("🇹🇿 TZ  +255", "+255"),
+        ("🇷🇼 RW  +250", "+250"), ("🇧🇮 BI  +257", "+257"), ("🇸🇸 SS  +211", "+211"),
+        ("🇨🇩 CD  +243", "+243"), ("🇸🇴 SO  +252", "+252"), ("🇪🇹 ET  +251", "+251"),
+        ("🇸🇩 SD  +249", "+249"), ("🇩🇯 DJ  +253", "+253"), ("🇪🇷 ER  +291", "+291"),
+        ("🇳🇬 NG  +234", "+234"), ("🇬🇭 GH  +233", "+233"), ("🇸🇳 SN  +221", "+221"),
+        ("🇨🇮 CI  +225", "+225"), ("🇨🇲 CM  +237", "+237"),
+        ("🇿🇦 ZA  +27",  "+27"),  ("🇿🇼 ZW  +263", "+263"), ("🇿🇲 ZM  +260", "+260"),
+        ("🇲🇿 MZ  +258", "+258"), ("🇲🇼 MW  +265", "+265"), ("🇧🇼 BW  +267", "+267"),
+        ("🇳🇦 NA  +264", "+264"), ("🇦🇴 AO  +244", "+244"),
+        ("🇪🇬 EG  +20",  "+20"),  ("🇲🇦 MA  +212", "+212"),
+        ("🇬🇧 GB  +44",  "+44"),  ("🇩🇪 DE  +49",  "+49"),  ("🇫🇷 FR  +33",  "+33"),
+        ("🇺🇸 US  +1",   "+1"),   ("🇨🇦 CA  +1",   "+1"),
+        ("🇮🇳 IN  +91",  "+91"),  ("🇦🇪 AE  +971", "+971"), ("🇸🇦 SA  +966", "+966"),
+        ("🇦🇺 AU  +61",  "+61"),
+        ("Other", ""),
+    ]
+    _CURRENCIES_SIGNUP = [
+        ("🇺🇬 UGX — Ugandan Shilling", "UGX"), ("🇰🇪 KES — Kenyan Shilling", "KES"),
+        ("🇹🇿 TZS — Tanzanian Shilling", "TZS"), ("🇷🇼 RWF — Rwandan Franc", "RWF"),
+        ("🇸🇸 SSP — South Sudanese Pound", "SSP"), ("🇨🇩 CDF — Congolese Franc", "CDF"),
+        ("🇪🇹 ETB — Ethiopian Birr", "ETB"), ("🇳🇬 NGN — Nigerian Naira", "NGN"),
+        ("🇬🇭 GHS — Ghanaian Cedi", "GHS"), ("🇿🇦 ZAR — South African Rand", "ZAR"),
+        ("🇿🇲 ZMW — Zambian Kwacha", "ZMW"), ("🇲🇿 MZN — Mozambican Metical", "MZN"),
+        ("🇲🇼 MWK — Malawian Kwacha", "MWK"), ("🇧🇼 BWP — Botswana Pula", "BWP"),
+        ("🇳🇦 NAD — Namibian Dollar", "NAD"), ("🇪🇬 EGP — Egyptian Pound", "EGP"),
+        ("🇲🇦 MAD — Moroccan Dirham", "MAD"), ("🇸🇦 SAR — Saudi Riyal", "SAR"),
+        ("🇦🇪 AED — UAE Dirham", "AED"), ("🇬🇧 GBP — British Pound", "GBP"),
+        ("🇪🇺 EUR — Euro", "EUR"), ("🇺🇸 USD — US Dollar", "USD"),
+        ("🇦🇺 AUD — Australian Dollar", "AUD"), ("🇮🇳 INR — Indian Rupee", "INR"),
+        ("Other (type below)", None),
+    ]
+    _dc_labels = [l for l, _ in _DIAL_CODES_SIGNUP]
+    _dc_values = {l: c for l, c in _DIAL_CODES_SIGNUP}
+    _cu_labels = [l for l, _ in _CURRENCIES_SIGNUP]
+    _cu_values = {l: c for l, c in _CURRENCIES_SIGNUP}
+
     with st.form("signup_form"):
         new_username   = st.text_input("Username *", placeholder="e.g. johndoe")
         new_password   = st.text_input("Password *", type="password", placeholder="at least 6 characters")
         confirm_pass   = st.text_input("Confirm password *", type="password", placeholder="••••••••")
         business_name  = st.text_input("Business / landlord name *", placeholder="e.g. Nakawa Rentals")
-        currency       = st.text_input("Currency code", value="UGX", placeholder="UGX, KES, USD …")
-        phone          = st.text_input("Contact phone (optional)", placeholder="+256 7xx xxx xxx")
+
+        st.markdown("**Currency**")
+        cu_label = st.selectbox("Currency", _cu_labels, index=0, label_visibility="collapsed")
+        cu_code  = _cu_values[cu_label]
+        if cu_code is None:
+            currency = st.text_input("Enter currency code", value="UGX", placeholder="e.g. XOF")
+        else:
+            currency = cu_code
+
+        st.markdown("**Contact phone (optional)**")
+        sc1, sc2 = st.columns([1, 2])
+        with sc1:
+            s_dial_label = st.selectbox("Code", _dc_labels, index=0, label_visibility="collapsed")
+        with sc2:
+            s_phone_local = st.text_input("Number", placeholder="701 234 567", label_visibility="collapsed")
+        s_dial_code = _dc_values[s_dial_label]
+        phone = (s_dial_code + s_phone_local.strip()).strip()
 
         submitted = st.form_submit_button(
             "Create account & start free trial",

@@ -270,9 +270,11 @@ def status_pill(text, tone="neutral"):
 
 def subscription_banner():
     """Shows a small status banner. Call after check_login() so account_id exists."""
-    from utils.subscription import update_subscription_status, days_remaining
+    from utils.subscription import update_subscription_status, days_remaining, is_admin
     from utils.auth import get_current_account_id
     account_id = get_current_account_id()
+    if is_admin(account_id):
+        return  # Admin always has full access — no banner needed
     sub = update_subscription_status(account_id)
     if not sub:
         return
@@ -296,10 +298,10 @@ def subscription_banner():
 
 def require_active_subscription():
     """Call before a write action. Returns True if allowed to proceed."""
-    from utils.subscription import system_active
+    from utils.subscription import system_active, is_admin
     from utils.auth import get_current_account_id
     account_id = get_current_account_id()
-    if system_active(account_id):
+    if is_admin(account_id) or system_active(account_id):
         return True
     st.error("🔒 Your LandlordPro subscription has expired. Your data is safe — renew on the **Subscription** page to continue adding or editing records.")
     return False

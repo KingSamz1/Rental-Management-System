@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.db import init_db, get_account
+from utils.db import init_db, get_account, list_all_accounts, delete_account
 from utils.auth import check_login, logout_button, get_current_account_id, SUPPORT_WHATSAPP, SUPPORT_NUMBER
 from utils.theme import apply_theme, page_header, section_label, empty_state, metric_row
 from utils.subscription import (
@@ -119,6 +119,42 @@ if admin:
                     f'</div>',
                     unsafe_allow_html=True,
                 )
+    except Exception as e:
+        st.error(str(e))
+
+    st.divider()
+    section_label("👥 All registered users")
+    st.caption("View and manage all LandlordPro accounts. You cannot delete your own admin account.")
+
+    try:
+        all_accounts = list_all_accounts()
+        for acc in all_accounts:
+            is_self = acc["id"] == account_id
+            label = f"{'🔑 Admin — ' if is_self else ''}{acc['username']} · {acc['business_name']} · {acc['currency']}"
+            with st.expander(label):
+                st.write(f"**ID:** {acc['id']}")
+                st.write(f"**Username:** {acc['username']}")
+                st.write(f"**Business name:** {acc['business_name']}")
+                st.write(f"**Currency:** {acc['currency']}")
+                st.write(f"**Phone:** {acc['business_phone'] or '—'}")
+                st.write(f"**Created:** {acc['created_at'][:10] if acc['created_at'] else '—'}")
+                if not is_self:
+                    confirm_key = f"confirm_delete_{acc['id']}"
+                    if st.session_state.get(confirm_key):
+                        st.warning(f"⚠️ Are you sure you want to delete **{acc['username']}**? This will erase ALL their data permanently.")
+                        col_yes, col_no = st.columns(2)
+                        if col_yes.button("Yes, delete account", key=f"yes_del_{acc['id']}", type="primary"):
+                            delete_account(acc["id"])
+                            st.session_state.pop(confirm_key, None)
+                            st.success(f"Account '{acc['username']}' deleted.")
+                            st.rerun()
+                        if col_no.button("Cancel", key=f"no_del_{acc['id']}"):
+                            st.session_state.pop(confirm_key, None)
+                            st.rerun()
+                    else:
+                        if st.button(f"🗑️ Delete {acc['username']}", key=f"del_{acc['id']}"):
+                            st.session_state[confirm_key] = True
+                            st.rerun()
     except Exception as e:
         st.error(str(e))
 

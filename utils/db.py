@@ -464,3 +464,20 @@ def set_setting(key, value, account_id=1):
         return
     with get_conn() as conn:
         conn.execute(f"UPDATE accounts SET {key} = ? WHERE id = ?", (value, account_id))
+
+
+# ---------- Admin: user management ----------
+
+def list_all_accounts():
+    """Return all accounts (admin use only)."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, username, business_name, currency, business_phone, created_at FROM accounts ORDER BY id"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def delete_account(account_id):
+    """Delete an account and all its data (admin use only). Never call on admin account."""
+    with get_conn() as conn:
+        conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
