@@ -253,7 +253,7 @@ def record_payment(tenant_id, amount, payment_date=None, method="cash", momo_ref
         return cur.lastrowid
 
 
-def list_payments(tenant_id=None, limit=None):
+def list_payments(tenant_id=None, limit=None, account_id=None):
     with get_conn() as conn:
         q = """SELECT pay.*, t.full_name, u.unit_name, p.name as property_name
                FROM payments pay
@@ -262,6 +262,9 @@ def list_payments(tenant_id=None, limit=None):
                JOIN properties p ON p.id = u.property_id
                WHERE 1=1"""
         params = []
+        if account_id:
+            q += " AND p.account_id = ?"
+            params.append(account_id)
         if tenant_id:
             q += " AND pay.tenant_id = ?"
             params.append(tenant_id)

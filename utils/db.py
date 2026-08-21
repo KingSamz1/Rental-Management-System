@@ -62,7 +62,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS accounts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL UNIQUE COLLATE NOCASE,
-            password_hash TEXT NOT NULL,
+            password_hash TEXT NOT NULL DEFAULT '',
             business_name TEXT NOT NULL DEFAULT 'My Rentals',
             currency TEXT NOT NULL DEFAULT 'UGX',
             business_phone TEXT NOT NULL DEFAULT '',
@@ -279,6 +279,8 @@ def _migrate(c, conn):
     if not _col_exists(c, "tenants", "id_document_path"):
         c.execute("ALTER TABLE tenants ADD COLUMN id_document_path TEXT")
 
+    # existing rows already have a hash so the constraint is satisfied regardless.
+
     # properties.account_id
     if not _col_exists(c, "properties", "account_id"):
         c.execute("ALTER TABLE properties ADD COLUMN account_id INTEGER NOT NULL DEFAULT 1")
@@ -472,7 +474,9 @@ def list_all_accounts():
     """Return all accounts (admin use only)."""
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT id, username, business_name, currency, business_phone, created_at FROM accounts ORDER BY id"
+            """SELECT id, username, business_name, currency, business_phone,
+                      created_at
+               FROM accounts ORDER BY id"""
         ).fetchall()
         return [dict(r) for r in rows]
 
@@ -481,3 +485,4 @@ def delete_account(account_id):
     """Delete an account and all its data (admin use only). Never call on admin account."""
     with get_conn() as conn:
         conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
+

@@ -1,7 +1,8 @@
 import streamlit as st
-from utils.db import init_db, get_account, update_account_settings, update_account_password, verify_password
+from utils.db import init_db, get_account, update_account_settings, update_account_password, verify_password, list_all_accounts
 from utils.auth import check_login, logout_button, get_current_account_id
-from utils.theme import apply_theme, page_header, section_label
+from utils.theme import apply_theme, page_header, section_label, colors
+from utils.subscription import get_subscription
 
 st.set_page_config(page_title="Settings", page_icon="⚙️", layout="wide")
 apply_theme()
@@ -154,3 +155,55 @@ with st.form("change_password_form"):
         else:
             update_account_password(account_id, new_pw)
             st.success("Password updated.")
+
+# ── Admin: all accounts ───────────────────────────────────────────────────────
+# Only account #1 (the original admin) sees this section.
+if account_id == 1:
+    st.divider()
+    section_label("Admin — all accounts")
+    c = colors()
+    all_accounts = list_all_accounts()
+    st.caption(f"{len(all_accounts)} account(s) registered on this instance.")
+    st.write("")
+
+    for acct in all_accounts:
+        sub = get_subscription(acct["id"])
+        status  = sub["status"] if sub else "—"
+        s_color = {"TRIAL": c["ACCENT"], "ACTIVE": c["ACCENT_DARK"], "EXPIRED": c["DANGER"]}.get(status, c["TEXT_MUTED"])
+
+        google_email = acct.get("google_email") or ""
+        auth_method  = acct.get("auth_method", "password")
+        if auth_method == "both":
+            auth_badge = "🔵+🔑 Google & password"
+        elif "google" in auth_method:
+            auth_badge = "🔵 Google"
+        else:
+            auth_badge = "🔑 Password"
+
+        avatar_initial = ((acct["business_name"] or acct["username"])[0]).upper()
+        badge_bg = "#4285F4" if "google" in auth_method else c["ACCENT"]
+
+        with st.expander(f"{acct['business_name'] or acct['username']}  ·  @{acct['username']}  ·  {status}"):
+            col_av, col_info = st.columns([1, 5])
+            with col_av:
+                st.markdown(
+                    f'<div style="width:52px; height:52px; border-radius:50%; background:{badge_bg}; '
+                    f'display:flex; align-items:center; justify-content:center; '
+                    f'font-size:22px; font-weight:700; color:#fff; margin-top:4px;">'
+                    f'{avatar_initial}</div>',
+                    unsafe_allow_html=True,
+                )
+            with col_info:
+                st.markdown(f"**{acct['business_name'] or acct['username']}**")
+                st.caption(f"@{acct['username']}  ·  {auth_badge}  ·  Currency: {acct['currency']}")
+                if google_email:
+                    st.caption(f"📧 {google_email}")
+                if acct.get("business_phone"):
+                    st.caption(f"📱 {acct['business_phone']}")
+                st.caption(f"Joined: {(acct.get('created_at') or '')[:10]}")
+
+            if sub:
+                mc1, mc2, mc3 = st.columns(3)
+                mc1.metric("Status", status)
+                mc2.metric("Trial ends / Next payment", sub.get("trial_end") or sub.get("next_payment_date") or "—")
+                mc3.metric("Monthly fee", f"{acct['currency']} {sub.get('monthly_fee', 0):,.0f}")
