@@ -4,7 +4,7 @@ from utils.auth import check_login, logout_button, get_current_account_id
 
 def get_account_setting(key, account_id):
     a = get_account(account_id)
-    return (a or {}).get(key, "UGX" if key == "currency" else "")
+    return (a or {}).get(key, "ZAR" if key == "currency" else "")
 from utils.logic import (
     add_property, list_properties, update_property, delete_property,
     add_unit, list_units, get_unit, update_unit, delete_unit,

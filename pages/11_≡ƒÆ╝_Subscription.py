@@ -10,7 +10,7 @@ from utils.subscription import (
     is_admin, generate_renewal_code, list_renewal_codes, redeem_renewal_code,
 )
 
-st.set_page_config(page_title="Subscription", page_icon="💼", layout="wide")
+st.set_page_config(page_title="Subscription — SA", page_icon="💼", layout="wide")
 apply_theme()
 init_db()
 if not check_login():
@@ -19,7 +19,7 @@ logout_button()
 
 account_id = get_current_account_id()
 account    = get_account(account_id) or {}
-currency   = account.get("currency", "UGX")
+currency   = account.get("currency", "ZAR")
 admin      = is_admin(account_id)
 
 page_header("LandlordPro Subscription", subtitle="Your Property. Your Tenants. Under Control.", icon="💼")
@@ -193,7 +193,7 @@ else:
         f"Please send me a renewal code."
     )
     import urllib.parse
-    wa_url = f"https://wa.me/256793839816?text={urllib.parse.quote(wa_msg)}"
+    wa_url = f"https://wa.me/27718726504?text={urllib.parse.quote(wa_msg)}"
 
     st.markdown(
         f'<div style="background:{c["CARD_BG"]}; border:1px solid {c["BORDER"]}; '

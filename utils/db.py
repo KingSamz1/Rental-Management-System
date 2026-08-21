@@ -66,9 +66,6 @@ def init_db():
             business_name TEXT NOT NULL DEFAULT 'My Rentals SA',
             currency TEXT NOT NULL DEFAULT 'ZAR',
             business_phone TEXT NOT NULL DEFAULT '',
-            google_email TEXT UNIQUE,
-            google_name TEXT,
-            auth_method TEXT NOT NULL DEFAULT 'password',  -- 'password' or 'google'
             created_at TEXT DEFAULT (datetime('now'))
         )
         """)
@@ -282,15 +279,6 @@ def _migrate(c, conn):
     if not _col_exists(c, "tenants", "id_document_path"):
         c.execute("ALTER TABLE tenants ADD COLUMN id_document_path TEXT")
 
-    # accounts: google_email / google_name / auth_method (Google OAuth support)
-    if not _col_exists(c, "accounts", "google_email"):
-        c.execute("ALTER TABLE accounts ADD COLUMN google_email TEXT")  # UNIQUE not allowed in ALTER TABLE in SQLite
-    if not _col_exists(c, "accounts", "google_name"):
-        c.execute("ALTER TABLE accounts ADD COLUMN google_name TEXT")
-    if not _col_exists(c, "accounts", "auth_method"):
-        c.execute("ALTER TABLE accounts ADD COLUMN auth_method TEXT NOT NULL DEFAULT 'password'")
-    # password_hash may be NOT NULL in old schema — relax it so Google accounts can omit it
-    # SQLite can't ALTER COLUMN, but the new schema already has DEFAULT '' so new DBs are fine;
     # existing rows already have a hash so the constraint is satisfied regardless.
 
     # properties.account_id
@@ -486,8 +474,7 @@ def list_all_accounts():
     """Return all accounts (admin use only)."""
     with get_conn() as conn:
         rows = conn.execute(
-            """SELECT id, username, business_name, currency, business_phone,
-                      google_email, google_name, auth_method, created_at
+            """SELECT id, username, business_name, currency, business_phone, created_at
                FROM accounts ORDER BY id"""
         ).fetchall()
         return [dict(r) for r in rows]
@@ -498,58 +485,3 @@ def delete_account(account_id):
     with get_conn() as conn:
         conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
 
-
-# ---------- Google OAuth helpers ----------
-
-def get_account_by_google_email(google_email):
-    """Look up an account by the Google email address used to sign in."""
-    with get_conn() as conn:
-        row = conn.execute(
-            "SELECT * FROM accounts WHERE google_email = ? COLLATE NOCASE", (google_email,)
-        ).fetchone()
-        return dict(row) if row else None
-
-
-def upsert_google_account(google_email, google_name, business_name=None):
-    """Create or update an account for a Google sign-in.
-    - If an account with this google_email already exists, return it (and refresh the name).
-    - Otherwise create a brand-new account. We never silently link by username because
-      a username collision does NOT mean it's the same person.
-    Returns the account dict.
-    """
-    if not business_name:
-        business_name = google_name or google_email.split("@")[0]
-
-    # Derive a clean base username from the email local-part; make it unique if taken.
-    base = google_email.split("@")[0].replace(".", "_").replace("+", "_").lower()
-
-    with get_conn() as conn:
-        # Already linked to this Google email? Just refresh the display name and return.
-        existing = conn.execute(
-            "SELECT * FROM accounts WHERE google_email = ? COLLATE NOCASE", (google_email,)
-        ).fetchone()
-        if existing:
-            conn.execute(
-                "UPDATE accounts SET google_name=? WHERE id=?",
-                (google_name, existing["id"]),
-            )
-            return dict(existing)
-
-        # New Google user — find a unique username (never stomp on an existing one).
-        username = base
-        suffix = 1
-        while conn.execute(
-            "SELECT id FROM accounts WHERE username = ? COLLATE NOCASE", (username,)
-        ).fetchone():
-            username = f"{base}{suffix}"
-            suffix += 1
-
-        cur = conn.execute(
-            """INSERT INTO accounts
-               (username, password_hash, business_name, currency, google_email, google_name, auth_method)
-               VALUES (?, '', ?, 'ZAR', ?, ?, 'google')""",
-            (username, business_name, google_email, google_name),
-        )
-        new_id = cur.lastrowid
-        row = conn.execute("SELECT * FROM accounts WHERE id=?", (new_id,)).fetchone()
-        return dict(row)

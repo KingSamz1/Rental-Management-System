@@ -13,7 +13,7 @@ logout_button()
 
 account_id = get_current_account_id()
 
-currency = (get_account(account_id) or {}).get("currency", "UGX")
+currency = (get_account(account_id) or {}).get("currency", "ZAR")
 
 page_header("Water Bills", icon="📱")
 st.caption(

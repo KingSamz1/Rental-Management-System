@@ -14,13 +14,13 @@ logout_button()
 
 account_id = get_current_account_id()
 
-currency = (get_account(account_id) or {}).get("currency", "UGX")
+currency = (get_account(account_id) or {}).get("currency", "ZAR")
 
 page_header("WhatsApp Rent Reminders", icon="📲")
 st.write("")
 
 c = colors()
-SUPPORT_WA = "https://wa.me/256793839816"
+SUPPORT_WA = "https://wa.me/27718726504"
 st.markdown(
     f'<div style="background:{c["ACCENT_SOFT"]}; border:1px solid {c["BORDER"]}; '
     f'border-radius:12px; padding:0.9rem 1.2rem; display:flex; align-items:center; '

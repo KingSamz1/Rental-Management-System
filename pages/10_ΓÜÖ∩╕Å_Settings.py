@@ -20,6 +20,10 @@ st.write("")
 
 # ── Dial codes reference (same list used across the app) ──────────────────────
 DIAL_CODES = [
+    # South Africa first
+    ("🇿🇦 ZA  +27",  "+27"),  ("🇳🇦 NA  +264", "+264"), ("🇿🇼 ZW  +263", "+263"),
+    ("🇿🇲 ZM  +260", "+260"), ("🇲🇿 MZ  +258", "+258"), ("🇲🇼 MW  +265", "+265"),
+    ("🇧🇼 BW  +267", "+267"), ("🇸🇿 SZ  +268", "+268"), ("🇱🇸 LS  +266", "+266"),
     # East Africa
     ("🇺🇬 UG  +256", "+256"), ("🇰🇪 KE  +254", "+254"), ("🇹🇿 TZ  +255", "+255"),
     ("🇷🇼 RW  +250", "+250"), ("🇧🇮 BI  +257", "+257"), ("🇸🇸 SS  +211", "+211"),
@@ -60,6 +64,10 @@ code_values = {label: code for label, code in DIAL_CODES}
 
 # Common currencies
 CURRENCIES = [
+    ("🇿🇦 ZAR — South African Rand",    "ZAR"),
+    ("🇳🇦 NAD — Namibian Dollar",       "NAD"),
+    ("🇿🇼 ZWL — Zimbabwean Dollar",     "ZWL"),
+    ("🇿🇲 ZMW — Zambian Kwacha",        "ZMW"),
     ("🇺🇬 UGX — Ugandan Shilling",     "UGX"),
     ("🇰🇪 KES — Kenyan Shilling",       "KES"),
     ("🇹🇿 TZS — Tanzanian Shilling",    "TZS"),
@@ -117,7 +125,7 @@ with st.form("settings_form"):
 
     # ── Currency picker ───────────────────────────────────────────────────────
     st.markdown("**Currency**")
-    current_currency = account.get("currency", "UGX")
+    current_currency = account.get("currency", "ZAR")
     # Find matching label
     default_curr_idx = len(CURRENCIES) - 1  # "Other"
     for idx, (lbl, code) in enumerate(CURRENCIES):
@@ -196,19 +204,14 @@ if account_id == 1:
             with col_info:
                 st.markdown(f"**{acct['business_name'] or acct['username']}**")
                 st.caption(f"@{acct['username']}  ·  {auth_badge}  ·  Currency: {acct['currency']}")
-                # Always show the best available contact/identity info
                 if google_email:
                     st.caption(f"📧 {google_email}")
-                else:
-                    st.caption(f"📧 No email on file (password account — login: @{acct['username']})")
                 if acct.get("business_phone"):
                     st.caption(f"📱 {acct['business_phone']}")
                 st.caption(f"Joined: {(acct.get('created_at') or '')[:10]}")
 
             if sub:
-                mc1, mc2, mc3, mc4 = st.columns(4)
+                mc1, mc2, mc3 = st.columns(3)
                 mc1.metric("Status", status)
                 mc2.metric("Trial ends / Next payment", sub.get("trial_end") or sub.get("next_payment_date") or "—")
                 mc3.metric("Monthly fee", f"{acct['currency']} {sub.get('monthly_fee', 0):,.0f}")
-                # Show the most useful identifier for contacting this account
-                mc4.metric("Contact / login", google_email if google_email else f"@{acct['username']}")
