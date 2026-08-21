@@ -1,0 +1,23 @@
+[theme]
+base = "light"
+font = "sans serif"
+
+[theme.light]
+primaryColor = "#007A4D"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F5F7F5"
+textColor = "#1A2420"
+font = "sans serif"
+
+[theme.dark]
+primaryColor = "#00C77A"
+backgroundColor = "#0D110F"
+secondaryBackgroundColor = "#161A17"
+textColor = "#EFF2F0"
+font = "sans serif"
+
+[server]
+headless = true
+maxUploadSize = 50
+enableCORS = false
+enableXsrfProtection = false

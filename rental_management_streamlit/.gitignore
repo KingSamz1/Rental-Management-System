@@ -1,0 +1,20 @@
+# Real credentials — only secrets.toml.example should ever be committed
+.streamlit/secrets.toml
+
+# Tenant/business data — this is a live database, not something to version
+data/
+*.db
+*.db-journal
+
+# Uploaded ID documents and generated receipts — real tenant documents
+tenant_documents/
+receipts/*.pdf
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS/editor cruft
+.DS_Store
