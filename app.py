@@ -120,4 +120,33 @@ with right:
         )
 
 st.divider()
+
+# ── Foldable "What LandlordPro SA does" ──────────────────────────────────────
+with st.expander("ℹ️ What LandlordPro SA does"):
+    features = [
+        ("🏢", "Properties & units",     "Add buildings and individual units in seconds."),
+        ("👤", "Tenant management",       "Store contacts, move-in dates, and documents."),
+        ("💰", "Rent & utilities",        "Charge rent or utilities per tenant each month."),
+        ("💳", "Payments & receipts",     "Record EFT or cash payments, auto-generate PDF receipts."),
+        ("🔐", "Deposits & advance rent", "Track security deposits and prepaid months separately."),
+        ("📲", "WhatsApp reminders",      "One-tap reminder links sent straight to tenants."),
+        ("📊", "Reports",                 "Monthly income, outstanding balances, and tenant history."),
+    ]
+    items_html = "".join(
+        f'<div style="display:flex; align-items:flex-start; gap:10px; padding:7px 0; border-bottom:1px solid {c["BORDER"]};">'
+        f'<span style="font-size:16px; line-height:1.4;">{icon}</span>'
+        f'<div><span style="font-size:13px; font-weight:600; color:{c["BRAND_TEXT"]};">{title}</span>'
+        f'<span style="font-size:12px; color:{c["TEXT_MUTED"]};">&nbsp;&mdash; {desc}</span></div></div>'
+        for icon, title, desc in features
+    )
+    st.markdown(
+        f'<p style="font-size:13px; color:{c["TEXT_MUTED"]}; line-height:1.55; margin-bottom:10px;">'
+        f'A simple, all-in-one tool built for landlords in South Africa (and anywhere else). '
+        f'Manage every property, tenant, and payment from one place &mdash; no spreadsheets, no paper.</p>'
+        f'{items_html}'
+        f'<p style="margin:10px 0 0; font-size:12px; color:{c["TEXT_MUTED"]}; font-style:italic;">'
+        f'First month free &middot; No setup fee &middot; Works on any device</p>',
+        unsafe_allow_html=True,
+    )
+
 st.caption("LandlordPro · Use the sidebar to manage properties, tenants, rent, payments, water bills, deposits, advance rent, reminders, and reports.")
