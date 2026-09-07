@@ -9,7 +9,7 @@ import string
 from datetime import date, datetime, timedelta
 from utils.db import get_conn
 
-MONTHLY_FEE = 100_000
+MONTHLY_FEE = 30_000
 GRACE_DAYS = 2
 ADMIN_USERNAME = "samzinov"
 

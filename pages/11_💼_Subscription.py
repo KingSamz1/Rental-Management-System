@@ -2,6 +2,7 @@ import streamlit as st
 from utils.db import init_db, get_account, list_all_accounts, delete_account
 from utils.auth import check_login, logout_button, get_current_account_id, SUPPORT_WHATSAPP, SUPPORT_NUMBER
 from utils.theme import apply_theme, page_header, section_label, empty_state, metric_row
+from utils.currency import get_supported_currencies, format_converted, rate_note
 from utils.subscription import (
     MONTHLY_FEE, GRACE_DAYS,
     create_subscription, get_subscription, update_subscription_status,
@@ -21,6 +22,16 @@ account_id = get_current_account_id()
 account    = get_account(account_id) or {}
 currency   = account.get("currency", "UGX")
 admin      = is_admin(account_id)
+
+# ── Currency display selector ──────────────────────────────────────────────────
+_all_currencies = get_supported_currencies()
+_default_idx = _all_currencies.index(currency) if currency in _all_currencies else 0
+display_currency = st.sidebar.selectbox(
+    "💱 Display currency",
+    _all_currencies,
+    index=_default_idx,
+    help="Converts the monthly fee for reference. Billing is always in UGX.",
+)
 
 page_header("LandlordPro Subscription", subtitle="Your Property. Your Tenants. Under Control.", icon="💼")
 st.write("")
@@ -62,12 +73,15 @@ due_label = "Trial ends" if status == "TRIAL" else ("Next payment" if status == 
 due_value = sub["trial_end"] if status == "TRIAL" else (sub["next_payment_date"] if status == "ACTIVE" else "Expired")
 
 metric_row([
-    {"label": "Status",        "value": status,                              "tone": "accent" if status != "EXPIRED" else "danger"},
-    {"label": "Days remaining","value": str(days),                           "tone": "neutral"},
-    {"label": "Monthly fee",   "value": f"{currency} {MONTHLY_FEE:,.0f}",   "tone": "neutral"},
-    {"label": due_label,       "value": due_value,                           "tone": "neutral"},
+    {"label": "Status",        "value": status,                                        "tone": "accent" if status != "EXPIRED" else "danger"},
+    {"label": "Days remaining","value": str(days),                                     "tone": "neutral"},
+    {"label": "Monthly fee",   "value": format_converted(MONTHLY_FEE, display_currency), "tone": "neutral"},
+    {"label": due_label,       "value": due_value,                                     "tone": "neutral"},
 ])
 
+_note = rate_note(display_currency)
+if _note:
+    st.caption(f"💱 {_note}")
 st.divider()
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -202,7 +216,7 @@ else:
         f'Want to renew your subscription?</p>'
         f'<p style="margin:0 0 14px; font-size:13px; color:{c["TEXT_MUTED"]}; line-height:1.55;">'
         f'Send us a message on WhatsApp and we\'ll process your payment and send you a renewal code. '
-        f'Monthly fee: <strong>{currency} {MONTHLY_FEE:,.0f}</strong>.</p>'
+        f'Monthly fee: <strong>{format_converted(MONTHLY_FEE, display_currency)}</strong>.</p>'
         f'<a href="{wa_url}" target="_blank" '
         f'style="display:inline-flex; align-items:center; gap:8px; '
         f'background:#25D366; color:#fff; text-decoration:none; '

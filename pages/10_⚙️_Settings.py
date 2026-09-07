@@ -196,14 +196,19 @@ if account_id == 1:
             with col_info:
                 st.markdown(f"**{acct['business_name'] or acct['username']}**")
                 st.caption(f"@{acct['username']}  ·  {auth_badge}  ·  Currency: {acct['currency']}")
+                # Always show the best available contact/identity info
                 if google_email:
                     st.caption(f"📧 {google_email}")
+                else:
+                    st.caption(f"📧 No email on file (password account — login: @{acct['username']})")
                 if acct.get("business_phone"):
                     st.caption(f"📱 {acct['business_phone']}")
                 st.caption(f"Joined: {(acct.get('created_at') or '')[:10]}")
 
             if sub:
-                mc1, mc2, mc3 = st.columns(3)
+                mc1, mc2, mc3, mc4 = st.columns(4)
                 mc1.metric("Status", status)
                 mc2.metric("Trial ends / Next payment", sub.get("trial_end") or sub.get("next_payment_date") or "—")
                 mc3.metric("Monthly fee", f"{acct['currency']} {sub.get('monthly_fee', 0):,.0f}")
+                # Show the most useful identifier for contacting this account
+                mc4.metric("Contact / login", google_email if google_email else f"@{acct['username']}")
