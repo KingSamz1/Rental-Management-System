@@ -355,7 +355,7 @@ def tenant_balance(tenant_id):
                WHERE tenant_id = ? AND payment_type IN ('rent', 'water', 'other')""",
             (tenant_id,),
         ).fetchone()
-    total_paid = row["total"]
+    total_paid = float(row["total"] or 0)
 
     balance = round(total_charged - total_paid, 2)
     return {
@@ -377,25 +377,25 @@ def all_tenant_balances(account_id=1):
 def portfolio_summary(account_id=1):
     """High-level numbers for the dashboard."""
     with get_conn() as conn:
-        total_units = conn.execute(
+        total_units = int(conn.execute(
             """SELECT COUNT(*) c FROM units u
                JOIN properties p ON p.id = u.property_id
                WHERE p.account_id = ?""", (account_id,)
-        ).fetchone()["c"]
-        occupied = conn.execute(
+        ).fetchone()["c"] or 0)
+        occupied = int(conn.execute(
             """SELECT COUNT(*) c FROM units u
                JOIN properties p ON p.id = u.property_id
                WHERE p.account_id = ? AND u.status = 'occupied'""", (account_id,)
-        ).fetchone()["c"]
+        ).fetchone()["c"] or 0)
         this_month = date.today().strftime("%Y-%m")
-        collected_this_month = conn.execute(
+        collected_this_month = float(conn.execute(
             """SELECT COALESCE(SUM(pay.amount),0) t FROM payments pay
                JOIN tenants t ON t.id = pay.tenant_id
                JOIN units u ON u.id = t.unit_id
                JOIN properties p ON p.id = u.property_id
                WHERE p.account_id = ? AND pay.payment_date LIKE ?""",
             (account_id, f"{this_month}%"),
-        ).fetchone()["t"]
+        ).fetchone()["t"] or 0)
 
     tenant_rows = list_tenants(status="active", account_id=account_id)
     total_owed = 0
