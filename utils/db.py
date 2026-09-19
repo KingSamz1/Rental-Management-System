@@ -10,8 +10,6 @@ import requests as _requests
 from contextlib import contextmanager
 
 
-# ── HTTP client for Turso ────────────────────────────────────────────────────
-
 class _TursoHTTP:
     def __init__(self, url: str, token: str):
         self._base = url.replace("libsql://", "https://")
@@ -81,7 +79,6 @@ def _cast(cell: dict):
         return int(v)
     if t == "float":
         return float(v)
-    # "text" and anything else stays as string
     return v
 
 
@@ -140,8 +137,6 @@ class _TursoCursor:
         return rows
 
 
-# ── Connection helpers ────────────────────────────────────────────────────────
-
 @st.cache_resource(show_spinner=False)
 def _get_turso_conn():
     url   = st.secrets["turso"]["url"]
@@ -199,8 +194,6 @@ def get_conn():
     except Exception:
         raise
 
-
-# ---------- Password helpers ----------
 
 def hash_password(password: str) -> str:
     salt = secrets.token_hex(16)
