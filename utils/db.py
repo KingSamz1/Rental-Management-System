@@ -71,6 +71,20 @@ def _build_stmt(sql: str, params=None) -> dict:
     return stmt
 
 
+def _cast(cell: dict):
+    """Convert a Turso HTTP API cell to a native Python type."""
+    t = cell.get("type")
+    v = cell.get("value")
+    if t == "null" or v is None:
+        return None
+    if t == "integer":
+        return int(v)
+    if t == "float":
+        return float(v)
+    # "text" and anything else stays as string
+    return v
+
+
 class _TursoCursor:
     def __init__(self, conn: _TursoHTTP):
         self._conn = conn
@@ -86,7 +100,7 @@ class _TursoCursor:
         inner = result.get("response", {}).get("result", {})
         self._cols = [c["name"] for c in inner.get("cols", [])]
         self._rows = [
-            [cell.get("value") for cell in row]
+            [_cast(cell) for cell in row]
             for row in inner.get("rows", [])
         ]
         self._idx = 0
