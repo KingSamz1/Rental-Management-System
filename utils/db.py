@@ -1,73 +1,177 @@
 """
-Database layer for LandlordPro UG.
-Turso (libSQL) — cloud SQLite that persists forever across Streamlit redeploys.
+Database layer for LandlordPro.
+Uses Turso HTTP API directly — no native libsql library needed.
 Connection uses st.secrets["turso"]["url"] and st.secrets["turso"]["token"].
-
-Drop-in replacement for the SQLite db.py — same API, same SQL syntax.
-Only the connection layer changes.
 """
 import hashlib
 import secrets
 import streamlit as st
-import libsql_experimental as libsql
-from datetime import datetime
+import requests as _requests
 from contextlib import contextmanager
 
 
+# ── HTTP client for Turso ────────────────────────────────────────────────────
+
+class _TursoHTTP:
+    def __init__(self, url: str, token: str):
+        self._base = url.replace("libsql://", "https://")
+        self._headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+        self._pending: list[dict] = []
+
+    def _send(self, statements: list[dict]) -> list[dict]:
+        payload = {"requests": [
+            {"type": "execute", "stmt": s} for s in statements
+        ] + [{"type": "close"}]}
+        resp = _requests.post(
+            f"{self._base}/v2/pipeline",
+            headers=self._headers,
+            json=payload,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()["results"]
+
+    def cursor(self):
+        return _TursoCursor(self)
+
+    def commit(self):
+        if not self._pending:
+            return
+        self._send(self._pending)
+        self._pending.clear()
+
+    def close(self):
+        self._pending.clear()
+
+    def _execute_now(self, sql: str, params=None) -> "_TursoCursor":
+        stmt = _build_stmt(sql, params)
+        results = self._send([stmt])
+        cur = _TursoCursor(self)
+        cur._load(results[0])
+        return cur
+
+
+def _build_stmt(sql: str, params=None) -> dict:
+    stmt: dict = {"sql": sql}
+    if params:
+        args = []
+        for p in params:
+            if p is None:
+                args.append({"type": "null"})
+            elif isinstance(p, int):
+                args.append({"type": "integer", "value": str(p)})
+            elif isinstance(p, float):
+                args.append({"type": "float", "value": p})
+            else:
+                args.append({"type": "text", "value": str(p)})
+        stmt["args"] = args
+    return stmt
+
+
+class _TursoCursor:
+    def __init__(self, conn: _TursoHTTP):
+        self._conn = conn
+        self._cols: list[str] = []
+        self._rows: list[list] = []
+        self._idx = 0
+        self.lastrowid = None
+        self.description = None
+
+    def _load(self, result: dict):
+        if result.get("type") == "error":
+            raise RuntimeError(result.get("error", {}).get("message", "Turso error"))
+        inner = result.get("response", {}).get("result", {})
+        self._cols = [c["name"] for c in inner.get("cols", [])]
+        self._rows = [
+            [cell.get("value") for cell in row]
+            for row in inner.get("rows", [])
+        ]
+        self._idx = 0
+        self.lastrowid = inner.get("last_insert_rowid")
+        self.description = [(c, None, None, None, None, None, None) for c in self._cols]
+
+    def execute(self, sql: str, params=None):
+        sql_upper = sql.strip().upper()
+        is_write = any(sql_upper.startswith(k) for k in ("INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER"))
+        if is_write:
+            stmt = _build_stmt(sql, params)
+            results = self._conn._send([stmt])
+            self._load(results[0])
+        else:
+            r = self._conn._execute_now(sql, params)
+            self._cols = r._cols
+            self._rows = r._rows
+            self._idx = r._idx
+            self.description = r.description
+            self.lastrowid = r.lastrowid
+        return self
+
+    def fetchone(self):
+        if self._idx >= len(self._rows):
+            return None
+        row = self._rows[self._idx]
+        self._idx += 1
+        if self._cols:
+            return {self._cols[i]: row[i] for i in range(len(self._cols))}
+        return row
+
+    def fetchall(self):
+        rows = self._rows[self._idx:]
+        self._idx = len(self._rows)
+        if self._cols:
+            return [{self._cols[i]: r[i] for i in range(len(self._cols))} for r in rows]
+        return rows
+
+
+# ── Connection helpers ────────────────────────────────────────────────────────
+
 @st.cache_resource(show_spinner=False)
 def _get_turso_conn():
-    """
-    Opens a single persistent Turso connection cached for the lifetime
-    of the Streamlit worker process. Reused across all reruns — no new
-    connection per button click.
-    """
     url   = st.secrets["turso"]["url"]
     token = st.secrets["turso"]["token"]
-    return libsql.connect(database=url, auth_token=token)
+    return _TursoHTTP(url, token)
 
 
 class _DictCursor:
-    """Wraps a libsql cursor to return dicts instead of tuples."""
-    def __init__(self, cur):
+    def __init__(self, cur: _TursoCursor):
         self._cur = cur
+
     def execute(self, sql, params=None):
-        if params is not None:
-            self._cur.execute(sql, params)
-        else:
-            self._cur.execute(sql)
+        self._cur.execute(sql, params)
         return self
+
     def fetchone(self):
-        row = self._cur.fetchone()
-        if row is None: return None
-        desc = self._cur.description or []
-        if desc:
-            return {desc[i][0]: row[i] for i in range(len(desc))}
-        return row
+        return self._cur.fetchone()
+
     def fetchall(self):
-        rows = self._cur.fetchall()
-        desc = self._cur.description or []
-        if desc:
-            return [{desc[i][0]: r[i] for i in range(len(desc))} for r in rows]
-        return rows
+        return self._cur.fetchall()
+
     @property
     def lastrowid(self):
         return self._cur.lastrowid
+
     @property
     def description(self):
         return self._cur.description
 
 
 class _DictConn:
-    """Wraps a libsql connection so .execute() returns a _DictCursor."""
-    def __init__(self, conn):
+    def __init__(self, conn: _TursoHTTP):
         self._conn = conn
+
     def execute(self, sql, params=None):
         cur = self._conn.cursor()
         return _DictCursor(cur).execute(sql, params)
+
     def cursor(self):
         return _DictCursor(self._conn.cursor())
+
     def commit(self):
         self._conn.commit()
+
     def close(self):
         self._conn.close()
 
