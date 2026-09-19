@@ -9,7 +9,7 @@ Only the connection layer changes.
 import hashlib
 import secrets
 import streamlit as st
-import libsql_experimental as libsql
+import libsql 
 from datetime import datetime
 from contextlib import contextmanager
 
