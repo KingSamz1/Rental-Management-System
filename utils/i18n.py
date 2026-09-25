@@ -1,8 +1,10 @@
 """
-i18n.py — Simple translation layer for LandlordPro.
-Uses Claude API to translate UI strings on demand, with session-level caching.
+i18n.py — Translation layer for LandlordPro.
+Translates all strings in one batch API call per language switch.
+Results cached in session state — zero API calls on subsequent renders.
 """
 import streamlit as st
+import requests
 
 LANGUAGES = {
     "English":    "en",
@@ -18,32 +20,32 @@ LANGUAGES = {
     "Русский":    "ru",
 }
 
+
 def get_language() -> str:
-    """Return the active language code, default English."""
     return st.session_state.get("app_lang", "en")
 
+
 def set_language(lang_code: str):
-    st.session_state["app_lang"] = lang_code
-    # Clear translation cache when language changes
-    st.session_state.pop("_trans_cache", None)
+    if lang_code != st.session_state.get("app_lang", "en"):
+        st.session_state["app_lang"] = lang_code
+        st.session_state.pop("_trans_cache", None)
+        st.session_state.pop("_trans_lang", None)
+
 
 def language_selector(location="sidebar"):
-    """Render the language dropdown. Call from sidebar or settings."""
-    lang_code = get_language()
+    lang_code    = get_language()
     current_name = next((n for n, c in LANGUAGES.items() if c == lang_code), "English")
-    options = list(LANGUAGES.keys())
+    options      = list(LANGUAGES.keys())
 
     if location == "sidebar":
         chosen = st.sidebar.selectbox(
-            "🌐 Language",
-            options,
+            "🌐 Language", options,
             index=options.index(current_name),
-            key="_lang_selector",
+            key="_lang_selector_sb",
         )
     else:
         chosen = st.selectbox(
-            "🌐 Interface language",
-            options,
+            "🌐 Language", options,
             index=options.index(current_name),
             key="_lang_selector_inline",
         )
@@ -53,106 +55,83 @@ def language_selector(location="sidebar"):
         set_language(new_code)
         st.rerun()
 
-def t(text: str) -> str:
-    """
-    Translate a string to the active language.
-    Returns original text if language is English or translation fails.
-    Caches all translations in session state to avoid repeated API calls.
-    """
-    lang = get_language()
-    if lang == "en" or not text or not text.strip():
-        return text
 
-    cache = st.session_state.setdefault("_trans_cache", {})
-    cache_key = f"{lang}:{text}"
-    if cache_key in cache:
-        return cache[cache_key]
-
+def _translate_batch(texts: list[str], lang_code: str) -> dict[str, str]:
+    unique   = list(dict.fromkeys(t for t in texts if t and t.strip()))
+    if not unique:
+        return {}
+    lang_name = next((n for n, c in LANGUAGES.items() if c == lang_code), lang_code)
+    numbered  = "\n".join(f"{i+1}|||{s}" for i, s in enumerate(unique))
     try:
-        import requests
-        lang_name = next((n for n, c in LANGUAGES.items() if c == lang), lang)
-        response = requests.post(
+        resp = requests.post(
             "https://api.anthropic.com/v1/messages",
             headers={"Content-Type": "application/json"},
             json={
                 "model": "claude-sonnet-4-6",
-                "max_tokens": 500,
+                "max_tokens": 4096,
                 "messages": [{
                     "role": "user",
                     "content": (
-                        f"Translate the following UI text to {lang_name}. "
-                        f"Return ONLY the translated text, nothing else. "
-                        f"Keep any emoji, punctuation, and formatting exactly as-is. "
-                        f"Text to translate:\n{text}"
+                        f"Translate these UI strings to {lang_name}. "
+                        f"Return ONLY the translations in the exact same format: "
+                        f"number|||translated text, one per line. "
+                        f"Keep emoji exactly as-is. Do not add any other text.\n\n"
+                        f"{numbered}"
                     )
                 }]
             },
-            timeout=10,
+            timeout=30,
         )
-        result = response.json()["content"][0]["text"].strip()
-        cache[cache_key] = result
-        return result
+        resp.raise_for_status()
+        result  = resp.json()["content"][0]["text"].strip()
+        mapping = {}
+        for line in result.split("\n"):
+            line = line.strip()
+            if "|||" in line:
+                parts = line.split("|||", 1)
+                try:
+                    idx = int(parts[0].strip()) - 1
+                    if 0 <= idx < len(unique):
+                        mapping[unique[idx]] = parts[1].strip()
+                except ValueError:
+                    pass
+        return mapping
     except Exception:
-        return text
+        return {}
 
 
-def t_batch(texts: list[str]) -> list[str]:
-    """Translate a list of strings in one API call. More efficient for pages."""
+def _ensure_cache(strings: list[str]):
     lang = get_language()
     if lang == "en":
-        return texts
+        return
+    cache      = st.session_state.setdefault("_trans_cache", {})
+    cache_lang = st.session_state.get("_trans_lang", "en")
+    if cache_lang != lang:
+        cache.clear()
+        st.session_state["_trans_lang"] = lang
+    missing = [s for s in strings if s and s.strip() and f"{lang}:{s}" not in cache]
+    if not missing:
+        return
+    mapping = _translate_batch(missing, lang)
+    for orig, translated in mapping.items():
+        cache[f"{lang}:{orig}"] = translated
 
-    cache = st.session_state.setdefault("_trans_cache", {})
-    results = []
-    to_translate = []
-    indices = []
 
-    for i, text in enumerate(texts):
-        key = f"{lang}:{text}"
-        if key in cache or not text.strip():
-            results.append((i, cache.get(key, text)))
-        else:
-            to_translate.append(text)
-            indices.append(i)
-            results.append((i, text))  # placeholder
+def t(text: str) -> str:
+    lang = get_language()
+    if lang == "en" or not text or not text.strip():
+        return text
+    cache = st.session_state.get("_trans_cache", {})
+    key   = f"{lang}:{text}"
+    if key in cache:
+        return cache[key]
+    mapping = _translate_batch([text], lang)
+    result  = mapping.get(text, text)
+    cache[key] = result
+    st.session_state["_trans_cache"] = cache
+    return result
 
-    if to_translate:
-        try:
-            import requests
-            lang_name = next((n for n, c in LANGUAGES.items() if c == lang), lang)
-            numbered = "\n".join(f"{i+1}. {t}" for i, t in enumerate(to_translate))
-            response = requests.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={"Content-Type": "application/json"},
-                json={
-                    "model": "claude-sonnet-4-6",
-                    "max_tokens": 2000,
-                    "messages": [{
-                        "role": "user",
-                        "content": (
-                            f"Translate these numbered UI strings to {lang_name}. "
-                            f"Return ONLY the translations, one per line, numbered the same way. "
-                            f"Keep emoji and formatting exactly as-is.\n\n{numbered}"
-                        )
-                    }]
-                },
-                timeout=15,
-            )
-            lines = response.json()["content"][0]["text"].strip().split("\n")
-            translated = []
-            for line in lines:
-                line = line.strip()
-                if line and line[0].isdigit() and ". " in line:
-                    translated.append(line.split(". ", 1)[1])
-                elif line:
-                    translated.append(line)
 
-            for idx, orig_idx in enumerate(indices):
-                if idx < len(translated):
-                    tr = translated[idx]
-                    cache[f"{lang}:{to_translate[idx]}"] = tr
-                    results[orig_idx] = (orig_idx, tr)
-        except Exception:
-            pass
-
-    return [v for _, v in sorted(results)]
+def preload_translations(*strings: str):
+    """Call at top of each page to batch-translate all strings in one API call."""
+    _ensure_cache(list(strings))
