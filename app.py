@@ -3,7 +3,7 @@ from datetime import date
 from utils.db import init_db, get_account
 from utils.auth import check_login, logout_button, get_current_account_id
 from utils.logic import portfolio_summary, all_tenant_balances, current_period, period_label, list_payments, list_tenants
-from utils.i18n import t, language_selector
+from utils.i18n import t, preload_translations
 from utils.theme import apply_theme, page_header, section_label, empty_state, subscription_banner, metric_row, status_pill, colors
 
 st.set_page_config(page_title="LandlordPro", page_icon="🏠", layout="wide")
@@ -21,26 +21,44 @@ business_name = account["business_name"] if account else "Rental Management"
 currency      = account["currency"] if account else "UGX"
 c = colors()
 
+preload_translations(
+    "Dashboard", "Total units", "Occupied", "Vacant", "Active tenants",
+    "Collected this month", "Total outstanding", "Total tenant credit",
+    "Quick actions", "Add property", "Add tenant", "Record payment",
+    "Generate rent", "Send reminders", "Recent payments", "Tenant balances",
+    "No payments recorded yet.", "No tenants yet. Add a property and unit first.",
+    "Owing", "Credit", "Settled",
+    "What LandlordPro does",
+    "A simple, all-in-one tool built for landlords in Africa (and anywhere else). Manage every property, tenant, and payment from one place — no spreadsheets, no paper.",
+    "Properties & units", "Add buildings and individual units in seconds.",
+    "Tenant management", "Store contacts, move-in dates, and documents.",
+    "Rent & water bills", "Charge rent or water per tenant each month.",
+    "Payments & receipts", "Record cash or MoMo payments, auto-generate PDF receipts.",
+    "Deposits & advance rent", "Track security deposits and prepaid months separately.",
+    "WhatsApp reminders", "One-tap reminder links sent straight to tenants.",
+    "Reports", "Monthly income, outstanding balances, and tenant history.",
+    "First month free · then UGX 30,000/month · No setup fee · Works on any device",
+    "LandlordPro · Use the sidebar to manage properties, tenants, rent, payments, water bills, deposits, advance rent, reminders, and reports.",
+)
+
 page_header(business_name, subtitle=f"{t('Dashboard')} · {period_label(current_period())}", icon="🏠")
 subscription_banner()
 st.write("")
 
 summary = portfolio_summary(account_id=account_id)
 
-# ── Key metrics ───────────────────────────────────────────────────────────────
 metric_row([
-    {"label": t("Total units"),    "value": str(summary["total_units"]),    "tone": "neutral"},
-    {"label": t("Occupied"),       "value": str(summary["occupied_units"]), "tone": "neutral"},
-    {"label": t("Vacant"),         "value": str(summary["vacant_units"]),   "tone": "neutral"},
-    {"label": t("Active tenants"), "value": str(summary["active_tenants"]), "tone": "neutral"},
+    {"label": t("Total units"),          "value": str(summary["total_units"]),    "tone": "neutral"},
+    {"label": t("Occupied"),             "value": str(summary["occupied_units"]), "tone": "neutral"},
+    {"label": t("Vacant"),               "value": str(summary["vacant_units"]),   "tone": "neutral"},
+    {"label": t("Active tenants"),       "value": str(summary["active_tenants"]), "tone": "neutral"},
 ])
 metric_row([
-    {"label": t("Collected this month"),  "value": f"{currency} {summary['collected_this_month']:,.0f}",  "tone": "accent"},
-    {"label": t("Total outstanding"),     "value": f"{currency} {summary['total_outstanding']:,.0f}",     "tone": "danger"},
-    {"label": t("Total tenant credit"),   "value": f"{currency} {summary['total_credit']:,.0f}",          "tone": "accent"},
+    {"label": t("Collected this month"), "value": f"{currency} {summary['collected_this_month']:,.0f}", "tone": "accent"},
+    {"label": t("Total outstanding"),    "value": f"{currency} {summary['total_outstanding']:,.0f}",    "tone": "danger"},
+    {"label": t("Total tenant credit"),  "value": f"{currency} {summary['total_credit']:,.0f}",         "tone": "accent"},
 ])
 
-# ── Quick actions ─────────────────────────────────────────────────────────────
 st.write("")
 section_label(t("Quick actions"))
 qa1, qa2, qa3, qa4, qa5 = st.columns(5)
@@ -62,7 +80,6 @@ with qa5:
 
 st.divider()
 
-# ── Two-column layout: recent payments + tenant balances ──────────────────────
 left, right = st.columns([1, 1], gap="large")
 
 with left:
@@ -123,7 +140,6 @@ with right:
 
 st.divider()
 
-# ── Foldable "What LandlordPro does" ─────────────────────────────────────────
 with st.expander(f"ℹ️ {t('What LandlordPro does')}"):
     features = [
         ("🏢", t("Properties & units"),     t("Add buildings and individual units in seconds.")),
