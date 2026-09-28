@@ -1468,11 +1468,18 @@ TRANSLATIONS["hi"] = {
 
 
 def get_language() -> str:
-    return st.session_state.get("app_lang", "en")
+    """Get language from query params (persists across pages) with session state fallback."""
+    # Query params survive page navigation; session state is faster within a page
+    lang = st.session_state.get("app_lang")
+    if not lang:
+        lang = st.query_params.get("lang", "en")
+        st.session_state["app_lang"] = lang
+    return lang
 
 
 def set_language(lang_code: str):
     st.session_state["app_lang"] = lang_code
+    st.query_params["lang"] = lang_code
 
 
 def language_selector(location="sidebar"):
