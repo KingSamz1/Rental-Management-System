@@ -136,6 +136,9 @@ def check_login():
 
 
 def _show_forgot_page(username_hint=""):
+     _lang = st.query_params.get("lang", "en")
+    if _lang != "en":
+        st.session_state["app_lang"] = _lang
     """
     Two-step password reset:
       Step 1 — Enter username → WhatsApp support to get a reset code
