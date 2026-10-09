@@ -107,7 +107,8 @@ def check_login():
 
     # Links row — signup + forgot password
     _forgot_user = st.session_state.get("_login_username_hint", "")
-    _forgot_url  = f"?page=forgot&username={urllib.parse.quote(_forgot_user)}" if _forgot_user else "?page=forgot"
+    _lang_param = get_language()
+_forgot_url = f"?page=forgot&lang={_lang_param}" + (f"&username={urllib.parse.quote(_forgot_user)}" if _forgot_user else "")
     st.markdown(
         f'<div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem;">'
         f'<p style="font-size:13px; color:{c["TEXT_MUTED"]}; margin:0;">'
