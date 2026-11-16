@@ -437,14 +437,17 @@ def _seed(conn):
 
     if count == 0:
         try:
-            username      = st.secrets["auth"]["username"]
-            raw_password  = st.secrets["auth"]["password"]
+            username       = st.secrets["auth"]["username"]
+            raw_password   = st.secrets["auth"]["password"]
             business_name = st.secrets.get("landlord", {}).get("business_name", "My Rentals")
             currency      = st.secrets.get("landlord", {}).get("currency", "UGX")
             phone         = st.secrets.get("landlord", {}).get("phone", "")
-        except Exception:
-            username = "admin"; raw_password = "changeme123"
-            business_name = "My Rentals"; currency = "UGX"; phone = ""
+        except Exception as exc:
+            raise RuntimeError(
+                "No accounts exist yet. Configure [auth] username and password "
+                "in Streamlit secrets before the first launch."
+            ) from exc
+
         pw_hash = hash_password(raw_password)
         conn.execute(
             "INSERT OR IGNORE INTO accounts (id, username, password_hash, business_name, currency, business_phone) "
@@ -452,23 +455,21 @@ def _seed(conn):
             (username, pw_hash, business_name, currency, phone),
         )
 
-    ADMIN_USERNAME = "samzinov"
-    ADMIN_PASSWORD = "s@mz!n0v"
-    existing = conn.execute(
-        "SELECT id FROM accounts WHERE username = ? COLLATE NOCASE", (ADMIN_USERNAME,)
-    ).fetchone()
-    admin_hash = hash_password(ADMIN_PASSWORD)
-    if not existing:
-        conn.execute(
-            "INSERT OR IGNORE INTO accounts (username, password_hash, business_name, currency, business_phone) "
-            "VALUES (?, ?, 'LandlordPro Admin', 'UGX', '')",
-            (ADMIN_USERNAME, admin_hash),
-        )
-    else:
-        conn.execute(
-            "UPDATE accounts SET password_hash = ? WHERE username = ? COLLATE NOCASE",
-            (admin_hash, ADMIN_USERNAME),
-        )
+    # Do not embed or reset an administrator password in source code.
+    # On a fresh database, an optional [admin] password secret provisions
+    # the reserved administrator account. Existing admin passwords remain
+    # user-managed through the application's Settings page.
+    admin_password = st.secrets.get("admin", {}).get("password")
+    if admin_password:
+        existing = conn.execute(
+            "SELECT id FROM accounts WHERE username = ? COLLATE NOCASE", ("samzinov",)
+        ).fetchone()
+        if not existing:
+            conn.execute(
+                "INSERT INTO accounts (username, password_hash, business_name, currency, business_phone) "
+                "VALUES (?, ?, 'LandlordPro Admin', 'UGX', '')",
+                ("samzinov", hash_password(admin_password)),
+            )
 
 
 # ---------- Account helpers — identical API to SQLite version ----------
@@ -488,6 +489,8 @@ def get_account_by_username(username):
 
 
 def create_account(username, password, business_name="My Rentals", currency="UGX", business_phone=""):
+    if username.strip().casefold() == "samzinov":
+        raise ValueError("This username is reserved for the administrator.")
     pw_hash = hash_password(password)
     with get_conn() as conn:
         conn.execute(

@@ -2,16 +2,15 @@
 .env
 .env.*
 !.env.example
-
-# Streamlit secrets
 .streamlit/secrets.toml
 
-# Private uploads and generated files
+# Private business and customer data
+data/
 tenant_documents/
-receipts/
 uploads/
-
-# Local databases and backups
+receipts/
+*.db
+*.db-journal
 *.sqlite
 *.sqlite3
 *.bak
@@ -22,3 +21,6 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+
+# OS / editor files
+.DS_Store

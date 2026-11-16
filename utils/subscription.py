@@ -298,6 +298,8 @@ def renew_subscription(account_id, payment_reference, payment_method, note=""):
 
 def generate_password_reset_code(admin_account_id, target_account_id):
     """Admin generates a one-time password reset code for a user."""
+    if not is_admin(admin_account_id):
+        raise PermissionError("Only the admin account can generate password reset codes.")
     import random, string
     from utils.db import get_conn
     code = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))

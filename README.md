@@ -1,94 +1,118 @@
-# Rental Management (Streamlit MVP)
+# Rental Management System (RMS)
 
-A working rental management system for Ugandan landlords: properties, units,
-tenants, monthly rent, payments (including Mobile Money references), water
-bills, deposits, advance rent, PDF receipts, reports/CSV export, and
-WhatsApp reminder preparation.
+A Python and Streamlit application for landlords and guesthouse operators to organise property operations in one place.
 
-## Setup
+RMS brings together property and unit records, tenant information, rent and water charges, payment records, deposits, advance rent, PDF receipts, reports and WhatsApp reminder preparation.
 
-```bash
-cd rental_management_streamlit
-python -m venv .venv
+## Project overview
+
+- **Project:** Rental Management System (RMS), presented in the application as LandlordPro
+- **Developer:** Samuel — [@KingSamz1](https://github.com/KingSamz1)
+- **Languages and tools:** Python, Streamlit, Turso/libSQL HTTP API, Pandas and ReportLab
+- **Status:** Independently developed application / evolving MVP
+
+## Features in the application
+
+- Property and unit management
+- Tenant records, occupancy status and document attachment
+- Monthly rent and water charge tracking
+- Payment records, including manually entered Mobile Money references
+- Deposit and advance-rent records
+- PDF receipt generation
+- Income, payment and balance reports with CSV export
+- WhatsApp reminder preparation and click-to-chat links
+- Account registration, login, password reset and subscription-related screens
+- Currency selection and business profile settings
+
+## Technology and architecture
+
+- **Python** — application and business logic
+- **Streamlit** — interactive web interface
+- **Turso/libSQL** — cloud database accessed through its HTTP API
+- **Pandas** — report tables and data exports
+- **ReportLab** — PDF receipt generation
+- **Requests** — HTTP communication with the database service
+
+## Repository structure
+
+```text
+app.py                  Streamlit application entry point
+pages/                  Properties, tenants, rent, payments, reports, etc.
+utils/db.py             Turso database access, schema and account helpers
+utils/logic.py          Rental, tenant, charge and payment business logic
+utils/auth.py           Login, registration and password-reset interface
+utils/receipts.py       PDF receipt generation
+utils/whatsapp.py       Reminder preparation and click-to-chat links
+utils/subscription.py   Trial, renewal-code and subscription logic
+utils/theme.py          Shared interface styling and components
+utils/i18n.py           Language and translation support
+requirements.txt        Python dependencies
 ```
 
-Activate the environment:
+## Run locally
 
-- Windows: `.venv\Scripts\activate`
-- Linux/Mac: `source .venv/bin/activate`
+1. Install Python 3.10 or newer.
+2. Clone the repository and open its folder.
+3. Create and activate a virtual environment:
 
-Then:
+   ```bash
+   python -m venv .venv
+   # Linux/macOS
+   source .venv/bin/activate
+   # Windows PowerShell
+   .venv\\Scripts\\Activate.ps1
+   ```
 
-```bash
-pip install -r requirements.txt
-cp .streamlit/secrets.toml.example .streamlit/secrets.toml
-```
+4. Install dependencies:
 
-Edit `.streamlit/secrets.toml` and set your own username/password and
-landlord details, then run:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-```bash
-streamlit run app.py
-```
+5. Create `.streamlit/secrets.toml` locally. Add your own Turso credentials and initial account details:
 
-The SQLite database (`data/rental.db`) is created automatically on first
-run — no manual setup needed.
+   ```toml
+   [turso]
+   url = "libsql://YOUR-DATABASE.turso.io"
+   token = "YOUR_TURSO_AUTH_TOKEN"
 
-## Suggested first walkthrough
+   [auth]
+   username = "YOUR_INITIAL_USERNAME"
+   password = "YOUR_INITIAL_PASSWORD"
 
-1. **Properties & Units** — add a property, then add its units with rent
-   and water rates.
-2. **Tenants** — assign a tenant to a vacant unit.
-3. **Rent** — generate this month's rent charge (either bulk for all active
-   tenants, or one at a time).
-4. **Payments** — record a payment against that tenant (try Mobile Money to
-   see the transaction reference field), and download the auto-generated
-   PDF receipt.
-5. **Dashboard** — check that the tenant balance updated correctly.
-6. **Reminders** — for anyone still owing, preview the WhatsApp message and
-   open the click-to-chat link.
-7. **Reports** — export balances/payments/charges as CSV.
+   [landlord]
+   business_name = "Your Business Name"
+   currency = "UGX"
+   phone = ""
 
-## Project layout
+   # Optional: used only to create the reserved admin account
+   # when it does not already exist in a fresh database.
+   [admin]
+   password = "A-UNIQUE-STRONG-ADMIN-PASSWORD"
+   ```
 
-```
-app.py                  Dashboard (entry point)
-pages/                  One file per sidebar page
-utils/db.py             SQLite schema + connection
-utils/logic.py          All business logic (properties, tenants, rent, balances)
-utils/receipts.py       PDF receipt generation (reportlab)
-utils/whatsapp.py       Reminder message builder + pluggable send interface
-utils/auth.py           Simple login gate
-data/rental.db          Created automatically — your data lives here
-receipts/               Generated PDF receipts land here
-```
+   The `[auth]` section is used only when the database has no accounts yet. Existing accounts keep their own passwords. The optional `[admin]` setting provisions the administrator account on a fresh database; it does not reset an existing administrator password.
 
-## What this is (and isn't)
+6. Start the application:
 
-This is a working MVP foundation, tested end-to-end (property → unit →
-tenant → rent charge → payment → balance → PDF receipt). Before using it
-commercially with real landlords or tenants, you should still strengthen:
+   ```bash
+   streamlit run app.py
+   ```
 
-- **Authentication** — currently a single hardcoded username/password in
-  `secrets.toml`, no hashing, no multi-user support, no session expiry.
-- **Backups** — nothing backs up `data/rental.db` automatically.
-- **Audit logs** — there's no record of who changed what.
-- **Deployment security** — run behind HTTPS, keep `secrets.toml` out of
-  version control (it's already gitignored-style excluded — don't commit it).
-- **WhatsApp sending** — `utils/whatsapp.py` prepares messages and gives a
-  manual click-to-chat link today. `send_via_provider()` is left
-  unimplemented (raises `NotImplementedError`) so it's obvious where to plug
-  in the WhatsApp Business Cloud API, Twilio, or another aggregator.
-- **Mobile Money** — payments currently store a manually-entered transaction
-  reference. Real API reconciliation (MTN/Airtel APIs) would remove the
-  manual-entry step.
+Never commit real secrets, tenant records, identity documents, database files or generated receipts.
 
-## Balance logic, in case you're auditing it
+## Current implementation notes
 
-A tenant's balance = sum of all `rent_charges` (rent + water + other) for
-them, minus sum of all payments with type `rent`/`water`/`other`. Deposits
-and advance rent are tracked as separate ledgers and are **not**
-automatically netted into the rent balance — they're credits held for a
-specific purpose (deposit refund, or a future month's rent), and applying
-them is a deliberate action you take on the Payments page when that time
-comes, not an automatic offset.
+- Mobile Money payments store a transaction reference entered by the user; automatic provider reconciliation is not included.
+- WhatsApp reminders can be prepared and opened as click-to-chat links. Automated sending through the WhatsApp Business API or another provider is not implemented in the current reminder module.
+- Subscription and renewal-code screens are included; a production payment-gateway integration should be assessed separately.
+- The current password helper uses salted SHA-256. A password-specific password-hashing algorithm should be adopted before production use.
+- Account ownership checks, backups, audit logging, upload validation and production deployment security need further review before handling real customers' sensitive records.
+
+This repository is shared as a software-development portfolio and demonstration. Do not use it with real tenant identity documents or financial records without completing a security review and configuring appropriate access controls, backups and deployment protections.
+
+## Developer
+
+Built by **Samuel** as an independent software project to explore practical application development, database-backed workflows, user interfaces and business process automation.
+
+GitHub: [@KingSamz1](https://github.com/KingSamz1)
