@@ -1,0 +1,26 @@
+# Environment variables and credentials
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Private business and customer data
+data/
+tenant_documents/
+uploads/
+receipts/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.bak
+*.backup
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS / editor files
+.DS_Store
