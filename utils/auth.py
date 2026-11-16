@@ -1,22 +1,22 @@
 """
-Authentication for GuesthousePro (username + password).
-Includes language selector, forgot password, and t() translations.
+Authentication for LandlordPro (username + password).
+Includes: login, signup, forgot-password flow, language selector.
 """
 import urllib.parse
 import streamlit as st
 from utils.db import get_account_by_username, verify_password, create_account
-from utils.currency import format_converted, rate_note, MONTHLY_FEE_UGX
 from utils.i18n import t, language_selector, get_language
 
 SUPPORT_WHATSAPP = "https://wa.me/256793839816"
 SUPPORT_NUMBER   = "+256 793 839 816"
+MONTHLY_FEE      = 30_000  # UGX
 
 
 def _whatsapp_footer(c):
     st.markdown(
         f'<div style="background:{c["CARD_BG"]}; border:1px solid {c["BORDER"]}; '
         f'border-radius:14px; padding:1rem 1.25rem; margin-top:0.75rem; text-align:center;">'
-        f'<p style="margin:0 0 8px; font-size:13px; color:{c["TEXT_MUTED"]}; font-weight:500;">{t("Need Help?")}</p>'
+        f'<p style="margin:0 0 8px; font-size:13px; color:{c["TEXT_MUTED"]}; font-weight:500;">{t("Need Assistance?")}</p>'
         f'<a href="{SUPPORT_WHATSAPP}" target="_blank" '
         f'style="display:inline-flex; align-items:center; gap:8px; '
         f'background:#25D366; color:#fff; text-decoration:none; '
@@ -27,14 +27,14 @@ def _whatsapp_footer(c):
     )
 
 
-def _brand_header(c, subtitle="Sign in to manage your property"):
+def _brand_header(c, subtitle="Sign in to manage your properties"):
     st.markdown(
         f'<div style="background:{c["CARD_BG"]}; border:1px solid {c["BORDER"]}; '
         f'border-radius:18px; padding:1.5rem 1.75rem 1rem; margin-bottom:0.75rem;">'
         f'<div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">'
         f'<div style="width:36px; height:36px; border-radius:10px; background:{c["ACCENT_SOFT"]}; '
-        f'display:flex; align-items:center; justify-content:center; font-size:18px;">\U0001f3e8</div>'
-        f'<span style="font-size:18px; font-weight:650; color:{c["BRAND_TEXT"]};">GuesthousePro</span>'
+        f'display:flex; align-items:center; justify-content:center; font-size:18px;">\U0001f3e0</div>'
+        f'<span style="font-size:18px; font-weight:650; color:{c["BRAND_TEXT"]};">LandlordPro</span>'
         f'</div>'
         f'<p style="color:{c["TEXT_MUTED"]}; margin:0; font-size:13px;">{t(subtitle)}</p>'
         f'</div>',
@@ -42,14 +42,14 @@ def _brand_header(c, subtitle="Sign in to manage your property"):
     )
 
 
-def _app_summary(c, currency="UGX"):
+def _app_summary(c):
     features = [
-        ("\U0001f3e2", t("Units & Rooms"),          t("Manage all your apartments with live status.")),
-        ("\U0001f4c5", t("Reservations & Calendar"), t("Visual booking grid, check-in/check-out.")),
-        ("\U0001f464", t("Guest Profiles"),          t("Store contacts, IDs, and stay history.")),
-        ("\U0001f4b0", t("Billing & Payments"),      t("Guest bill, extra charges, MoMo, cash, bank.")),
-        ("\U0001f9f9", t("Housekeeping"),            t("Room status board — dirty, cleaning, ready.")),
-        ("\U0001f527", t("Maintenance"),             t("Log issues, assign staff, block bookings.")),
+        ("\U0001f3e2", t("Properties & units"),     t("Add buildings and individual units in seconds.")),
+        ("\U0001f464", t("Tenant management"),       t("Store contacts, move-in dates, and documents.")),
+        ("\U0001f4b0", t("Rent & water bills"),      t("Charge rent or water per tenant each month.")),
+        ("\U0001f4b3", t("Payments & receipts"),     t("Record cash or MoMo payments, auto-generate PDF receipts.")),
+        ("\U0001f510", t("Deposits & advance rent"), t("Track security deposits and prepaid months separately.")),
+        ("\U0001f4f2", t("WhatsApp reminders"),      t("One-tap reminder links sent straight to tenants.")),
         ("\U0001f4ca", t("Reports"),                 t("Monthly income, outstanding balances, and tenant history.")),
     ]
     items_html = "".join(
@@ -59,23 +59,17 @@ def _app_summary(c, currency="UGX"):
         f'<span style="font-size:12px; color:{c["TEXT_MUTED"]};">\u00a0\u2014 {desc}</span></div></div>'
         for icon, title, desc in features
     )
-    fee_str = format_converted(MONTHLY_FEE_UGX, currency)
-    _rnote  = rate_note(currency)
-    pricing_note = (
-        f'{t("First month free")} \u00b7 {t("then")} <strong>{fee_str}/month</strong>'
-        + (f' <em>({_rnote})</em>' if _rnote else "")
-        + f' \u00b7 {t("No setup fee")} \u00b7 {t("Works on any device")}'
-    )
+    pricing_line = t(f"First month free \u00b7 then UGX 30,000/month \u00b7 No setup fee \u00b7 Works on any device")
     st.markdown(
         f'<div style="background:{c["CARD_BG"]}; border:1px solid {c["BORDER"]}; '
         f'border-radius:14px; padding:1rem 1.25rem; margin-top:0.75rem;">'
         f'<p style="margin:0 0 10px; font-size:13px; font-weight:700; color:{c["BRAND_TEXT"]}; '
-        f'letter-spacing:0.02em; text-transform:uppercase;">{t("What GuesthousePro does")}</p>'
+        f'letter-spacing:0.02em; text-transform:uppercase;">{t("What LandlordPro does")}</p>'
         f'<p style="margin:0 0 10px; font-size:13px; color:{c["TEXT_MUTED"]}; line-height:1.55;">'
-        f'{t("A smart, all-in-one Property Management System built for guesthouses and serviced apartments in Africa. Reservations, housekeeping, billing — all in one place.")}</p>'
+        f'{t("A simple, all-in-one tool built for landlords in Africa (and anywhere else). Manage every property, tenant, and payment from one place \u2014 no spreadsheets, no paper.")}</p>'
         f'{items_html}'
         f'<p style="margin:10px 0 0; font-size:12px; color:{c["TEXT_MUTED"]};">'
-        f'{pricing_note}</p>'
+        f'{pricing_line}</p>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -101,28 +95,30 @@ def check_login():
 
     st.markdown('<div style="max-width:420px; margin: 2.5rem auto 0;">', unsafe_allow_html=True)
 
+    # Language selector at top of login
     language_selector(location="inline")
-    _brand_header(c, subtitle="Sign in to manage your property")
+
+    _brand_header(c, subtitle="Sign in to manage your properties")
 
     with st.form("login_form"):
         username  = st.text_input(t("Username"), placeholder=t("your username"))
         password  = st.text_input(t("Password"), type="password", placeholder="\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7")
         submitted = st.form_submit_button(t("Log in"), type="primary", use_container_width=True)
 
+    # Links row — signup + forgot password
     _forgot_user = st.session_state.get("_login_username_hint", "")
     _lang_param = get_language()
     _forgot_url = f"?page=forgot&lang={_lang_param}" + (f"&username={urllib.parse.quote(_forgot_user)}" if _forgot_user else "")
     st.markdown(
-        f'<div style="display:flex; justify-content:space-between; align-items:center; '
-        f'font-size:13px; color:{c["TEXT_MUTED"]}; margin-top:0.4rem; margin-bottom:0.2rem;">'
-        f'<span>{t("No account?")} <a href="?page=signup&lang={get_language()}" target="_self" style="color:{c["ACCENT"]}; font-weight:600;">{t("Create one")} \u2192</a></span>'
+        f'<div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem;">'
+        f'<p style="font-size:13px; color:{c["TEXT_MUTED"]}; margin:0;">'
+        f'{t("No account?")} <a href="?page=signup" target="_self" style="color:{c["ACCENT"]}; font-weight:600;">{t("Create one")} \u2192</a></p>'
         f'<a href="{_forgot_url}" target="_self" style="color:{c["TEXT_MUTED"]}; text-decoration:underline; font-size:12px;">{t("Forgot password?")}</a>'
         f'</div>',
         unsafe_allow_html=True,
     )
 
-    error_slot = st.empty()
-    _app_summary(c, currency="UGX")
+    _app_summary(c)
     _whatsapp_footer(c)
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -135,7 +131,7 @@ def check_login():
             st.session_state["username"]      = account["username"]
             st.rerun()
         else:
-            error_slot.error(t("Invalid username or password."))
+            st.error(t("Invalid username or password."))
 
     st.stop()
 
@@ -144,32 +140,36 @@ def _show_forgot_page(username_hint=""):
     _lang = st.query_params.get("lang", "en")
     if _lang != "en":
         st.session_state["app_lang"] = _lang
-        
+    """
+    Two-step password reset:
+      Step 1 — Enter username → WhatsApp support to get a reset code
+      Step 2 — Enter reset code + new password
+      Step 3 — Done
+    """
     from utils.subscription import redeem_password_reset_code
     from utils.db import update_account_password, get_account_by_username
     from utils.theme import apply_theme, colors
     apply_theme()
     c = colors()
 
+    wa_msg_template = t("Hello, I forgot my LandlordPro password. My username is: {username}. Please send me a reset code.")
     step = st.session_state.get("forgot_step", 1)
 
     st.markdown('<div style="max-width:420px; margin: 2.5rem auto 0;">', unsafe_allow_html=True)
-
-    language_selector(location="inline")
     _brand_header(c, subtitle="Reset your password")
 
     if step == 1:
         st.markdown(
             f'<div style="background:{c["CARD_BG"]}; border:1px solid {c["BORDER"]}; '
             f'border-radius:14px; padding:1.1rem 1.4rem; margin-bottom:0.75rem;">'
-            f'<p style="margin:0 0 6px; font-size:14px; font-weight:600; color:{c["BRAND_TEXT"]};">{t("Step 1 of 2 — Enter your username")}</p>'
+            f'<p style="margin:0 0 6px; font-size:14px; font-weight:600; color:{c["BRAND_TEXT"]};">{t("Step 1 of 2 \u2014 Enter your username")}</p>'
             f'<p style="margin:0; font-size:13px; color:{c["TEXT_MUTED"]}; line-height:1.55;">'
             f'{t("Enter the username you use to log in. We\'ll show you a WhatsApp button to contact support and get a reset code.")}</p>'
             f'</div>',
             unsafe_allow_html=True,
         )
         with st.form("forgot_step1"):
-            entered_username = st.text_input(t("Your username"), value=username_hint, placeholder="e.g. ronniemanager")
+            entered_username = st.text_input(t("Your username"), value=username_hint, placeholder="e.g. johndoe")
             go = st.form_submit_button(t("Continue"), type="primary", use_container_width=True)
             if go:
                 uname = entered_username.strip()
@@ -185,15 +185,14 @@ def _show_forgot_page(username_hint=""):
                         st.rerun()
 
     elif step == 2:
-        uname   = st.session_state.get("forgot_username", "")
-        wa_msg_template = t("Hello, I forgot my GuesthousePro password. My username is: {username}. Please send me a reset code.")
-        wa_msg  = wa_msg_template.format(username=uname) if "{username}" in wa_msg_template else wa_msg_template + f" {uname}"
-        wa_url  = f"{SUPPORT_WHATSAPP}?text={urllib.parse.quote(wa_msg)}"
+        uname  = st.session_state.get("forgot_username", "")
+        wa_msg = wa_msg_template.format(username=uname) if "{username}" in wa_msg_template else wa_msg_template + f" {uname}"
+        wa_url = f"{SUPPORT_WHATSAPP}?text={urllib.parse.quote(wa_msg)}"
 
         st.markdown(
             f'<div style="background:{c["CARD_BG"]}; border:1px solid {c["BORDER"]}; '
             f'border-radius:14px; padding:1.1rem 1.4rem; margin-bottom:0.75rem;">'
-            f'<p style="margin:0 0 4px; font-size:13px; font-weight:600; color:{c["BRAND_TEXT"]};">{t("Step 2 of 2 — Get your reset code")}</p>'
+            f'<p style="margin:0 0 4px; font-size:13px; font-weight:600; color:{c["BRAND_TEXT"]};">{t("Step 2 of 2 \u2014 Get your reset code")}</p>'
             f'<p style="margin:0 0 12px; font-size:13px; color:{c["TEXT_MUTED"]}; line-height:1.55;">'
             f'{t("Contact support on WhatsApp with your username")} <strong>{uname}</strong>. '
             f'{t("They will generate a reset code for you. Enter it below with your new password.")}</p>'
@@ -237,13 +236,13 @@ def _show_forgot_page(username_hint=""):
                     except ValueError as e:
                         st.error(str(e))
 
-        if st.button(t("← Change username"), use_container_width=False):
+        if st.button(t("\u2190 Change username"), use_container_width=False):
             st.session_state["forgot_step"] = 1
             st.rerun()
 
     elif step == 3:
-        st.success(t("✅ Password reset successfully! You can now log in with your new password."))
-        if st.button(t("← Back to login"), type="primary", use_container_width=True):
+        st.success(t("\u2705 Password reset successfully! You can now log in with your new password."))
+        if st.button(t("\u2190 Back to login"), type="primary", use_container_width=True):
             for k in ["forgot_step", "forgot_username"]:
                 st.session_state.pop(k, None)
             st.query_params.clear()
@@ -251,7 +250,7 @@ def _show_forgot_page(username_hint=""):
 
     st.markdown(
         f'<p style="text-align:center; font-size:13px; color:{c["TEXT_MUTED"]}; margin-top:0.75rem;">'
-        f'<a href="/" target="_self" style="color:{c["ACCENT"]}; font-weight:600;">{t("← Back to login")}</a></p>',
+        f'<a href="/" target="_self" style="color:{c["ACCENT"]}; font-weight:600;">{t("\u2190 Back to login")}</a></p>',
         unsafe_allow_html=True,
     )
     st.markdown('</div>', unsafe_allow_html=True)
@@ -277,8 +276,6 @@ def _show_signup_page():
         ("\U0001f1f3\U0001f1ec NGN \u2014 Nigerian Naira",     "NGN"),
         ("\U0001f1fa\U0001f1f8 USD \u2014 US Dollar",          "USD"),
         ("\U0001f1ec\U0001f1e7 GBP \u2014 British Pound",      "GBP"),
-        ("\U0001f1ff\U0001f1e6 ZAR \u2014 South African Rand", "ZAR"),
-        ("\U0001f1e6\U0001f1ea AED \u2014 UAE Dirham",         "AED"),
         ("Other (type below)", None),
     ]
     dc_labels = [l for l, _ in _DIAL_CODES]
@@ -288,13 +285,13 @@ def _show_signup_page():
 
     st.markdown('<div style="max-width:420px; margin: 2.5rem auto 0;">', unsafe_allow_html=True)
     language_selector(location="inline")
-    _brand_header(c, subtitle="Create your account — first month free, no setup fee")
+    _brand_header(c, subtitle="Create your account \u2014 first month free, no setup fee")
 
     with st.form("signup_form"):
-        new_username  = st.text_input(t("Username *"),             placeholder="e.g. ronniemanager")
-        new_password  = st.text_input(t("Password *"),             type="password", placeholder=t("at least 6 characters"))
-        confirm_pass  = st.text_input(t("Confirm password *"),     type="password", placeholder="\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7")
-        property_name = st.text_input(t("Property name *"),        placeholder="e.g. Ronnie Skyline Residences")
+        new_username  = st.text_input(t("Username *"),              placeholder="e.g. johndoe")
+        new_password  = st.text_input(t("Password *"),              type="password", placeholder=t("at least 6 characters"))
+        confirm_pass  = st.text_input(t("Confirm password *"),      type="password", placeholder="\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7")
+        business_name = st.text_input(t("Business / landlord name *"), placeholder="e.g. Nakawa Rentals")
         st.markdown(f"**{t('Currency')}**")
         cu_label = st.selectbox(t("Currency"), cu_labels, index=0, label_visibility="collapsed")
         cu_code  = cu_values[cu_label]
@@ -302,7 +299,7 @@ def _show_signup_page():
         st.markdown(f"**{t('Contact phone (optional)')}**")
         sc1, sc2 = st.columns([1, 2])
         with sc1:
-            s_dial_label  = st.selectbox(t("Code"), dc_labels, index=0, label_visibility="collapsed")
+            s_dial_label  = st.selectbox(t("Code"),   dc_labels, index=0, label_visibility="collapsed")
         with sc2:
             s_phone_local = st.text_input(t("Number"), placeholder="701 234 567", label_visibility="collapsed")
         phone     = (dc_values[s_dial_label] + s_phone_local.strip()).strip()
@@ -313,17 +310,16 @@ def _show_signup_page():
         f'{t("Already have an account?")} <a href="/" target="_self" style="color:{c["ACCENT"]}; font-weight:600;">\u2190 {t("Back to login")}</a></p>',
         unsafe_allow_html=True,
     )
-    _preview_currency = cu_code if cu_code else "UGX"
-    _app_summary(c, currency=_preview_currency)
+    _app_summary(c)
     _whatsapp_footer(c)
     st.markdown('</div>', unsafe_allow_html=True)
 
     if submitted:
         errors = []
-        if not new_username.strip():               errors.append(t("Username is required."))
-        if len(new_password) < 6:                  errors.append(t("Password must be at least 6 characters."))
-        if new_password != confirm_pass:           errors.append(t("Passwords don't match."))
-        if not property_name.strip():             errors.append(t("Business name is required."))
+        if not new_username.strip():              errors.append(t("Username is required."))
+        if len(new_password) < 6:                errors.append(t("Password must be at least 6 characters."))
+        if new_password != confirm_pass:          errors.append(t("Passwords don't match."))
+        if not business_name.strip():             errors.append(t("Business name is required."))
         if get_account_by_username(new_username.strip()): errors.append(t("That username is already taken."))
         if errors:
             for e in errors: st.error(e)
@@ -331,14 +327,14 @@ def _show_signup_page():
             from utils.subscription import create_subscription
             acct_id = create_account(
                 new_username.strip(), new_password,
-                property_name.strip(), currency.strip().upper(), phone.strip(),
+                business_name.strip(), currency.strip().upper(), phone.strip(),
             )
-            create_subscription(acct_id, property_name.strip())
+            create_subscription(acct_id, business_name.strip())
             st.session_state["authenticated"] = True
             st.session_state["account_id"]    = acct_id
             st.session_state["username"]      = new_username.strip()
             st.query_params.clear()
-            st.success(t("Account created! Welcome to GuesthousePro 🎉"))
+            st.success(t("Account created! Welcome to LandlordPro 🎉"))
             st.rerun()
 
     st.stop()
@@ -352,8 +348,8 @@ def logout_button():
     account       = get_account(account_id) or {}
     c             = colors()
     username      = account.get("username", st.session_state.get("username", ""))
-    property_name = account.get("property_name", "")
-    display_name  = property_name or username
+    business_name = account.get("business_name", "")
+    display_name  = business_name or username
     initial       = (display_name[0] if display_name else "?").upper()
 
     with st.sidebar:
